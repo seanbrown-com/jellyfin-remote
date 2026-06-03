@@ -1,0 +1,251 @@
+# Home Assistant package: Jellyfin search + jf-audio-renderer transport.
+# See ../README.md for install and helper configuration.
+#
+# Requires HA 2024.2+ (rest_command response_variable in scripts).
+
+jf_wholehome:
+  input_text:
+    jf_jellyfin_base_url:
+      name: JF Jellyfin base URL
+      initial: "http://127.0.0.1:8096"
+      max: 200
+      mode: text
+    jf_jellyfin_user_id:
+      name: JF Jellyfin user id
+      initial: ""
+      max: 80
+      mode: text
+    jf_jellyfin_api_key:
+      name: JF Jellyfin API key
+      initial: ""
+      max: 512
+      mode: password
+    jf_renderer_base_url:
+      name: JF Audio Renderer base URL
+      initial: "http://127.0.0.1:8787"
+      max: 200
+      mode: text
+    jf_renderer_api_token:
+      name: JF Audio Renderer API token
+      initial: ""
+      max: 256
+      mode: password
+    jf_voice_query:
+      name: JF play query (Assist / dashboard)
+      initial: ""
+      max: 500
+      mode: text
+
+  rest_command:
+    jf_jellyfin_search:
+      method: GET
+      timeout: 30
+      headers:
+        X-Emby-Token: "{{ states('input_text.jf_jellyfin_api_key') }}"
+      url: >-
+        {% set base = (states('input_text.jf_jellyfin_base_url') ~ '').rstrip('/') %}
+        {% set uid = states('input_text.jf_jellyfin_user_id') %}
+        {% set q = (query | default('') | trim) | urlencode %}
+        {{ base }}/Users/{{ uid }}/Items?SearchTerm={{ q }}&IncludeItemTypes=Audio,MusicAlbum,MusicArtist,Playlist&Recursive=true&Limit=25&Fields=Id,Name,Type,AlbumId,ParentId
+
+    jf_jellyfin_album_tracks:
+      method: GET
+      timeout: 30
+      headers:
+        X-Emby-Token: "{{ states('input_text.jf_jellyfin_api_key') }}"
+      url: >-
+        {% set base = (states('input_text.jf_jellyfin_base_url') ~ '').rstrip('/') %}
+        {% set uid = states('input_text.jf_jellyfin_user_id') %}
+        {% set aid = album_id | default('') %}
+        {{ base }}/Users/{{ uid }}/Items?ParentId={{ aid }}&IncludeItemTypes=Audio&Recursive=true&SortBy=IndexNumber&Limit=500&Fields=Id,Type,IndexNumber
+
+    jf_renderer_play:
+      method: POST
+      timeout: 30
+      headers:
+        Content-Type: application/json
+        X-Renderer-Token: "{{ states('input_text.jf_renderer_api_token') }}"
+      url: >-
+        {% set rb = (states('input_text.jf_renderer_base_url') ~ '').rstrip('/') %}
+        {{ rb }}/player/play
+      payload: "{{ play_payload }}"
+
+    jf_renderer_pause:
+      method: POST
+      timeout: 15
+      headers:
+        X-Renderer-Token: "{{ states('input_text.jf_renderer_api_token') }}"
+      url: >-
+        {% set rb = (states('input_text.jf_renderer_base_url') ~ '').rstrip('/') %}
+        {{ rb }}/player/pause
+
+    jf_renderer_resume:
+      method: POST
+      timeout: 15
+      headers:
+        X-Renderer-Token: "{{ states('input_text.jf_renderer_api_token') }}"
+      url: >-
+        {% set rb = (states('input_text.jf_renderer_base_url') ~ '').rstrip('/') %}
+        {{ rb }}/player/resume
+
+    jf_renderer_stop:
+      method: POST
+      timeout: 15
+      headers:
+        X-Renderer-Token: "{{ states('input_text.jf_renderer_api_token') }}"
+      url: >-
+        {% set rb = (states('input_text.jf_renderer_base_url') ~ '').rstrip('/') %}
+        {{ rb }}/player/stop
+
+    jf_renderer_next:
+      method: POST
+      timeout: 15
+      headers:
+        X-Renderer-Token: "{{ states('input_text.jf_renderer_api_token') }}"
+      url: >-
+        {% set rb = (states('input_text.jf_renderer_base_url') ~ '').rstrip('/') %}
+        {{ rb }}/player/next
+
+    jf_renderer_previous:
+      method: POST
+      timeout: 15
+      headers:
+        X-Renderer-Token: "{{ states('input_text.jf_renderer_api_token') }}"
+      url: >-
+        {% set rb = (states('input_text.jf_renderer_base_url') ~ '').rstrip('/') %}
+        {{ rb }}/player/previous
+
+    jf_renderer_volume:
+      method: POST
+      timeout: 15
+      headers:
+        Content-Type: application/json
+        X-Renderer-Token: "{{ states('input_text.jf_renderer_api_token') }}"
+      url: >-
+        {% set rb = (states('input_text.jf_renderer_base_url') ~ '').rstrip('/') %}
+        {{ rb }}/player/volume
+      payload: '{"volume": {{ volume | int(0) }}}'
+
+  script:
+    jf_play_search:
+      alias: JF play Jellyfin search
+      description: Search Jellyfin and play strongest match on jf-audio-renderer
+      icon: mdi:music-note
+      fields:
+        query:
+          description: Search text (song, album, or artist)
+          required: true
+          example: "This is how we do it"
+          selector:
+            text:
+      sequence:
+        - variables:
+            _q: "{{ query | default('') | trim }}"
+        - condition: template
+          value_template: "{{ _q | length > 0 }}"
+        - service: rest_command.jf_jellyfin_search
+          data:
+            query: "{{ _q }}"
+          response_variable: jf_search
+        - choose:
+            - conditions: >
+                {{ ((jf_search.content if jf_search.content is mapping else {}).get('Items', [])) | length == 0 }}
+              sequence:
+                - service: persistent_notification.create
+                  data:
+                    title: JF play search
+                    message: "No Jellyfin results for: {{ _q }}"
+          default:
+            - choose:
+                - conditions: >
+                    {{ ((jf_search.content if jf_search.content is mapping else {}).get('Items', []))
+                       | selectattr('Type', 'eq', 'Audio') | list | length > 0 }}
+                  sequence:
+                    - variables:
+                        tid: "{{ ((jf_search.content if jf_search.content is mapping else {}).get('Items', []) | selectattr('Type', 'eq', 'Audio') | list | first).Id }}"
+                    - variables:
+                        play_payload: "{{ {'itemId': tid, 'mode': 'replaceQueue', 'queue': [tid]} | to_json }}"
+                    - service: rest_command.jf_renderer_play
+                      data:
+                        play_payload: "{{ play_payload }}"
+                - conditions: >
+                    {{ ((jf_search.content if jf_search.content is mapping else {}).get('Items', []))
+                       | selectattr('Type', 'eq', 'MusicAlbum') | list | length > 0 }}
+                  sequence:
+                    - variables:
+                        aid: "{{ ((jf_search.content if jf_search.content is mapping else {}).get('Items', []) | selectattr('Type', 'eq', 'MusicAlbum') | list | first).Id }}"
+                    - service: rest_command.jf_jellyfin_album_tracks
+                      data:
+                        album_id: "{{ aid }}"
+                      response_variable: jf_tracks
+                    - choose:
+                        - conditions: >
+                            {{ ((jf_tracks.content if jf_tracks.content is mapping else {}).get('Items', [])) | length == 0 }}
+                          sequence:
+                            - service: persistent_notification.create
+                              data:
+                                title: JF play search
+                                message: "Album matched but no tracks under parent id {{ aid }}"
+                      default:
+                        - variables:
+                            play_payload: >-
+                              {% set tr = (jf_tracks.content if jf_tracks.content is mapping else {}).get('Items', []) %}
+                              {% set idl = tr | map(attribute='Id') | list %}
+                              {{ {'itemId': idl[0], 'mode': 'replaceQueue', 'queue': idl} | to_json }}
+                        - service: rest_command.jf_renderer_play
+                          data:
+                            play_payload: "{{ play_payload }}"
+              default:
+                - service: persistent_notification.create
+                  data:
+                    title: JF play search
+                    message: "No Audio or MusicAlbum in first page of results for: {{ _q }}"
+
+    jf_play_from_input_query:
+      alias: JF play from input query helper
+      description: Runs script.jf_play_search using text from input_text.jf_voice_query
+      icon: mdi:play-circle
+      sequence:
+        - service: script.jf_play_search
+          data:
+            query: "{{ states('input_text.jf_voice_query') }}"
+
+    jf_renderer_pause:
+      alias: JF renderer pause
+      sequence:
+        - service: rest_command.jf_renderer_pause
+
+    jf_renderer_resume:
+      alias: JF renderer resume
+      sequence:
+        - service: rest_command.jf_renderer_resume
+
+    jf_renderer_stop:
+      alias: JF renderer stop
+      sequence:
+        - service: rest_command.jf_renderer_stop
+
+    jf_renderer_next:
+      alias: JF renderer next
+      sequence:
+        - service: rest_command.jf_renderer_next
+
+    jf_renderer_previous:
+      alias: JF renderer previous
+      sequence:
+        - service: rest_command.jf_renderer_previous
+
+    jf_renderer_volume:
+      alias: JF renderer volume
+      fields:
+        volume:
+          description: Volume 0–100
+          required: true
+          selector:
+            number:
+              min: 0
+              max: 100
+      sequence:
+        - service: rest_command.jf_renderer_volume
+          data:
+            volume: "{{ volume }}"

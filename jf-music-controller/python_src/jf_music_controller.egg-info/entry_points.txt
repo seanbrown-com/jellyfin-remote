@@ -1,0 +1,2 @@
+[console_scripts]
+jf-music-controller = jf_music_controller.main:cli_main

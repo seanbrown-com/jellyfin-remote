@@ -1,0 +1,19 @@
+[Unit]
+Description=JF Music Controller (Finamp-like Jellyfin web UI + BFF)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Environment=CONFIG_PATH=/etc/jf-music/config.yaml
+Environment=JF_MUSIC_DATA_DIR=/etc/jf-music
+Environment=CONTROLLER_HOST=0.0.0.0
+Environment=CONTROLLER_PORT=8088
+WorkingDirectory=/opt/jf-music-controller
+ExecStart=/opt/jf-music-controller/.venv/bin/jf-music-controller
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

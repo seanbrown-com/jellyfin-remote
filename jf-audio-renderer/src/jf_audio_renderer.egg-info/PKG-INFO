@@ -1,0 +1,44 @@
+Metadata-Version: 2.4
+Name: jf-audio-renderer
+Version: 0.1.0
+Summary: Headless Jellyfin music renderer (mpv + FastAPI)
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: uvicorn[standard]>=0.32.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: pydantic>=2.9.0
+Requires-Dist: pydantic-settings>=2.6.0
+Requires-Dist: pyyaml>=6.0.0
+Requires-Dist: cryptography>=42.0.0
+Requires-Dist: bcrypt>=4.1.0
+Requires-Dist: jinja2>=3.1.0
+Requires-Dist: python-multipart>=0.0.9
+Requires-Dist: itsdangerous>=2.2.0
+Requires-Dist: eval-type-backport>=0.2.0
+
+# JF Audio Renderer
+
+Headless Jellyfin music renderer: **FastAPI** controls **mpv** over JSON IPC and plays Jellyfin audio streams (for example to ALSA S/PDIF).
+
+See `config.example.yaml` and `scripts/lxc-setup-debian.sh`.
+
+## Quick start (development)
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+cp config.example.yaml config.yaml
+# edit config.yaml — set jellyfin.base_url, api_key, user_id, renderer.audio_device
+export CONFIG_PATH=$PWD/config.yaml
+jf-audio-renderer
+```
+
+Defaults: listen on `0.0.0.0:8787`. Override with `RENDERER_HOST` / `RENDERER_PORT`.
+
+## API
+
+See `jellyfin_wholehome_audio_plan.md` in the parent folder for the full endpoint list. `GET /player/events` streams **Server-Sent Events** (`text/event-stream`).
+
+If `renderer.api_token` is set in config, **mutating** requests (`POST`, `DELETE`, …) must send `X-Renderer-Token` or `Authorization: Bearer …`. `GET` (including state, queue, and SSE) stays open for LAN/kiosk use.

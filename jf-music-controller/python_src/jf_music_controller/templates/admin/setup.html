@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Initial setup{% endblock %}
+{% block heading %}Create admin password{% endblock %}
+{% block sub %}Writes encrypted <code>config.enc</code>, <code>key.bin</code> (Fernet key material), <code>admin.bcrypt</code>, and <code>session.secret</code> under the secure data directory. After verifying the service, remove plaintext <code>config.yaml</code> if you no longer need it.{% endblock %}
+{% block body %}
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+  <form class="card" method="post" action="/admin/setup">
+    <label for="password">Admin password</label>
+    <input id="password" name="password" type="password" autocomplete="new-password" required />
+    <label for="password2">Confirm password</label>
+    <input id="password2" name="password2" type="password" autocomplete="new-password" required />
+    <h2 style="font-size:1rem;margin:18px 0 6px">Jellyfin</h2>
+    <label for="jf_base">Base URL</label>
+    <input id="jf_base" name="jellyfin_base_url" value="{{ jellyfin.base_url or '' }}" />
+    <label for="jf_key">API key</label>
+    <input id="jf_key" name="jellyfin_api_key" value="{{ jellyfin.api_key or '' }}" type="password" />
+    <label for="jf_user">User id</label>
+    <input id="jf_user" name="jellyfin_user_id" value="{{ jellyfin.user_id or '' }}" />
+    <h2 style="font-size:1rem;margin:18px 0 6px">Controller (this app)</h2>
+    <label for="ch">Listen host</label>
+    <input id="ch" name="controller_host" value="{{ controller.host }}" />
+    <label for="cp">Listen port</label>
+    <input id="cp" name="controller_port" type="number" value="{{ controller.port }}" />
+    <label for="csd">Static web root (built Vite output)</label>
+    <input id="csd" name="controller_static_dir" value="{{ controller.static_dir }}" />
+    <h2 style="font-size:1rem;margin:18px 0 6px">Renderer (JF Audio Renderer)</h2>
+    <label for="rb">Renderer base URL</label>
+    <input id="rb" name="renderer_base_url" value="{{ renderer.base_url }}" />
+    <label for="rt">Renderer token (optional; sent as X-Renderer-Token)</label>
+    <input id="rt" name="renderer_token" value="{{ renderer.token or '' }}" type="password" />
+    <div class="row">
+      <button class="primary" type="submit">Save encrypted configuration</button>
+    </div>
+  </form>
+{% endblock %}

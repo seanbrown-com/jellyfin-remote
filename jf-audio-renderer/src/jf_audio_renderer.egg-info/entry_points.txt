@@ -1,0 +1,2 @@
+[console_scripts]
+jf-audio-renderer = jf_audio_renderer.main:cli_main

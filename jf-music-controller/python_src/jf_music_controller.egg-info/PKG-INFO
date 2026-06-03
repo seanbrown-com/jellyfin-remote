@@ -1,0 +1,63 @@
+Metadata-Version: 2.4
+Name: jf-music-controller
+Version: 0.1.0
+Summary: Finamp-like Jellyfin music web controller + BFF
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: uvicorn[standard]>=0.32.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: pydantic>=2.9.0
+Requires-Dist: pydantic-settings>=2.6.0
+Requires-Dist: pyyaml>=6.0.0
+Requires-Dist: cryptography>=42.0.0
+Requires-Dist: bcrypt>=4.1.0
+Requires-Dist: jinja2>=3.1.0
+Requires-Dist: python-multipart>=0.0.9
+Requires-Dist: itsdangerous>=2.2.0
+Requires-Dist: eval-type-backport>=0.2.0
+
+# JF Music Controller
+
+Touch-first web UI (Finamp-inspired) plus a small **FastAPI BFF** that:
+
+- talks to your [Jellyfin](https://github.com/jellyfin/jellyfin) server with the API key **server-side**, and  
+- proxies playback commands to **[JF Audio Renderer](../jf-audio-renderer/)** on the LAN.
+
+## Development
+
+Terminal A (from `jf-music-controller/`, after `cp config.example.yaml config.yaml` and editing it):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+export CONFIG_PATH=$PWD/config.yaml
+jf-music-controller
+```
+
+Terminal B:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Vite proxies `/api` → `http://127.0.0.1:8088`. Open the URL Vite prints (usually `http://127.0.0.1:5173`).
+
+## Production (single process)
+
+Build the UI and run the app from the repo root so `web/dist` matches `controller.static_dir`:
+
+```bash
+(cd web && npm ci && npm run build)
+export CONFIG_PATH=$PWD/config.yaml
+jf-music-controller
+```
+
+Then open `http://<host>:8088`.
+
+## LXC / appliance
+
+See `scripts/lxc-setup-debian.sh` and `scripts/systemd/jf-music-controller.service`.

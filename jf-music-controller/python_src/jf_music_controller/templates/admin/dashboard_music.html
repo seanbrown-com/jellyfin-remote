@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Configuration{% endblock %}
+{% block heading %}Configuration{% endblock %}
+{% block sub %}Saved settings are encrypted on disk. After changing listen host/port, use <strong>Restart service</strong> below (or restart the systemd unit).{% if not encrypted %} <strong>Tip:</strong> plaintext YAML is still being read until you save here.{% endif %}{% endblock %}
+{% block body %}
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+  {% if message %}<div class="ok">{{ message }}</div>{% endif %}
+  <form class="card" method="post" action="/admin/save">
+    <h2 style="font-size:1rem;margin:0 0 6px">Change admin password (optional)</h2>
+    <label for="newpw">New password</label>
+    <input id="newpw" name="new_password" type="password" autocomplete="new-password" />
+    <label for="newpw2">Confirm new password</label>
+    <input id="newpw2" name="new_password2" type="password" autocomplete="new-password" />
+    <h2 style="font-size:1rem;margin:18px 0 6px">Jellyfin</h2>
+    <label for="jf_base">Base URL</label>
+    <input id="jf_base" name="jellyfin_base_url" value="{{ jellyfin.base_url or '' }}" />
+    <label for="jf_key">API key</label>
+    <input id="jf_key" name="jellyfin_api_key" value="{{ jellyfin.api_key or '' }}" type="password" />
+    <label for="jf_user">User id</label>
+    <input id="jf_user" name="jellyfin_user_id" value="{{ jellyfin.user_id or '' }}" />
+    <h2 style="font-size:1rem;margin:18px 0 6px">Controller</h2>
+    <label for="ch">Listen host</label>
+    <input id="ch" name="controller_host" value="{{ controller.host }}" />
+    <label for="cp">Listen port</label>
+    <input id="cp" name="controller_port" type="number" value="{{ controller.port }}" />
+    <label for="csd">Static web root</label>
+    <input id="csd" name="controller_static_dir" value="{{ controller.static_dir }}" />
+    <h2 style="font-size:1rem;margin:18px 0 6px">Renderer</h2>
+    <label for="rb">Renderer base URL</label>
+    <input id="rb" name="renderer_base_url" value="{{ renderer.base_url }}" />
+    <label for="rt">Renderer token</label>
+    <input id="rt" name="renderer_token" value="{{ renderer.token or '' }}" type="password" />
+    <div class="row">
+      <button class="primary" type="submit">Save encrypted configuration</button>
+      <a class="btn" href="/admin/logout">Sign out</a>
+    </div>
+  </form>
+  <form class="card" method="post" action="/admin/restart" onsubmit="return confirm('Restart this service now? Open sessions will drop briefly.');">
+    <h2 style="font-size:1rem;margin:0 0 6px">Restart service</h2>
+    <p class="muted" style="margin:0 0 12px">Reloads the process from disk so listen address, static web root, Jellyfin, and renderer settings take effect.</p>
+    <button type="submit" class="btn danger">Restart service now</button>
+  </form>
+{% endblock %}

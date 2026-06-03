@@ -1,0 +1,22 @@
+[Unit]
+Description=JF Audio Renderer (Jellyfin music → mpv)
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=audio
+Environment=CONFIG_PATH=/etc/jf-audio/config.yaml
+Environment=JF_AUDIO_DATA_DIR=/etc/jf-audio
+Environment=RENDERER_HOST=0.0.0.0
+Environment=RENDERER_PORT=8787
+RuntimeDirectory=jf-audio
+RuntimeDirectoryMode=0755
+WorkingDirectory=/opt/jf-audio-renderer
+ExecStart=/opt/jf-audio-renderer/.venv/bin/jf-audio-renderer
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

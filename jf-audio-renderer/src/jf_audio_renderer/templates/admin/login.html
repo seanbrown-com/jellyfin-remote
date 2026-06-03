@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block heading %}Admin sign-in{% endblock %}
+{% block sub %}{{ service }} — credentials are stored as a bcrypt hash; configuration is stored encrypted on disk.{% endblock %}
+{% block body %}
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+  <form class="card" method="post" action="/admin/login">
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required />
+    <div class="row">
+      <button class="primary" type="submit">Sign in</button>
+      <a class="btn" href="/health">Health</a>
+    </div>
+  </form>
+{% endblock %}

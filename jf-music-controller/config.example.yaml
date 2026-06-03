@@ -1,0 +1,15 @@
+jellyfin:
+  base_url: "http://jellyfin.local:8096"
+  api_key: "REPLACE_ME"
+  user_id: "JELLYFIN_USER_ID"
+
+controller:
+  host: "0.0.0.0"
+  port: 8088
+  # Path to Vite build output (production). Dev: run Vite separately.
+  static_dir: "web/dist"
+
+renderer:
+  base_url: "http://127.0.0.1:8787"
+  # If the renderer requires a token, set the same value as renderer.api_token there.
+  token: ""

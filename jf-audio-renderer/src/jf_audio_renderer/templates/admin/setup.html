@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Initial setup{% endblock %}
+{% block heading %}Create admin password{% endblock %}
+{% block sub %}This writes encrypted <code>config.enc</code>, a random <code>key.bin</code>, and <code>admin.bcrypt</code> under the secure data directory. Remove plaintext <code>config.yaml</code> after verifying the service starts.{% endblock %}
+{% block body %}
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+  <form class="card" method="post" action="/admin/setup">
+    <label for="password">Admin password</label>
+    <input id="password" name="password" type="password" autocomplete="new-password" required />
+    <label for="password2">Confirm password</label>
+    <input id="password2" name="password2" type="password" autocomplete="new-password" required />
+    <h2 style="font-size:1rem;margin:18px 0 6px">Jellyfin</h2>
+    <label for="jf_base">Base URL</label>
+    <input id="jf_base" name="jellyfin_base_url" value="{{ jellyfin.base_url or '' }}" placeholder="http://jellyfin:8096" />
+    <label for="jf_key">API key</label>
+    <input id="jf_key" name="jellyfin_api_key" value="{{ jellyfin.api_key or '' }}" type="password" autocomplete="off" />
+    <label for="jf_user">User id</label>
+    <input id="jf_user" name="jellyfin_user_id" value="{{ jellyfin.user_id or '' }}" />
+    <label for="jf_dev">Device id</label>
+    <input id="jf_dev" name="jellyfin_device_id" value="{{ jellyfin.device_id or '' }}" />
+    <label for="jf_dn">Device name</label>
+    <input id="jf_dn" name="jellyfin_device_name" value="{{ jellyfin.device_name or '' }}" />
+    <h2 style="font-size:1rem;margin:18px 0 6px">Renderer</h2>
+    <label for="rh">Listen host</label>
+    <input id="rh" name="renderer_host" value="{{ renderer.host }}" />
+    <label for="rp">Listen port</label>
+    <input id="rp" name="renderer_port" type="number" value="{{ renderer.port }}" />
+    <label for="mpv">mpv IPC socket</label>
+    <input id="mpv" name="renderer_mpv_socket" value="{{ renderer.mpv_socket }}" />
+    <label for="alsa">ALSA / mpv audio device</label>
+    <input id="alsa" name="renderer_audio_device" value="{{ renderer.audio_device }}" />
+    <label for="vol">Default volume (0–100)</label>
+    <input id="vol" name="renderer_default_volume" type="number" value="{{ renderer.default_volume }}" />
+    <label for="tok">Renderer API token (optional; POST mutating /player requires it)</label>
+    <input id="tok" name="renderer_api_token" value="{{ renderer.api_token or '' }}" type="password" autocomplete="off" />
+    <div class="row">
+      <button class="primary" type="submit">Save encrypted configuration</button>
+    </div>
+  </form>
+{% endblock %}

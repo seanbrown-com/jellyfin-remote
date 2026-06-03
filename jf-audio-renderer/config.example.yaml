@@ -1,0 +1,15 @@
+jellyfin:
+  base_url: "http://jellyfin.local:8096"
+  api_key: "REPLACE_ME"
+  user_id: "JELLYFIN_USER_ID"
+  device_id: "jf-audio-renderer-1"
+  device_name: "Whole Home Audio"
+
+renderer:
+  host: "0.0.0.0"
+  port: 8787
+  mpv_socket: "/run/jf-audio/mpv.sock"
+  audio_device: "alsa/iec958"
+  default_volume: 80
+  # Optional: require this value in X-Renderer-Token header for mutating /player routes
+  api_token: ""
