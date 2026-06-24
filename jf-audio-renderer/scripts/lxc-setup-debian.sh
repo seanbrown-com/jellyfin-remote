@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Proxmox LXC (Debian 12+) — install JF Audio Renderer dependencies, venv, and systemd.
+# Proxmox LXC (Debian 13, compatible with Debian 12+) — install JF Audio Renderer dependencies, venv, and systemd.
 #
 # Usage (inside the LXC, as root):
 #   ./scripts/lxc-setup-debian.sh /path/to/jf-audio-renderer-source
@@ -22,7 +22,7 @@ CFG="${CFG:-/etc/jf-audio/config.yaml}"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 apt-get install -y --no-install-recommends \
-  ca-certificates curl \
+  ca-certificates curl rsync \
   python3 python3-venv python3-pip \
   mpv alsa-utils
 
