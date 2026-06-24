@@ -117,7 +117,7 @@ class MpvController:
                 elif msg.get("event") == "end-file":
                     reason = (msg.get("reason") or "").lower()
                     if reason in ("eof", "stop", "") and self._on_end_file:
-                        await self._on_end_file()
+                        asyncio.create_task(self._on_end_file())
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001
