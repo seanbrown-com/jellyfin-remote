@@ -254,28 +254,38 @@ class JellyfinBrowser:
     async def search(self, q: str, limit: int = 30) -> dict[str, list[dict[str, Any]]]:
         if not q.strip():
             return {"artists": [], "albums": [], "tracks": [], "playlists": []}
-        r = await self._client.get(
-            f"/Users/{self._cfg.user_id}/Items",
-            params={
-                "SearchTerm": q,
-                "IncludeItemTypes": "MusicArtist,MusicAlbum,Audio,Playlist",
-                "Recursive": "true",
-                "Limit": limit,
-                "Fields": "PrimaryImageTag,ProductionYear,ChildCount,AlbumArtist,Album,Artists,RunTimeTicks,AlbumId,ParentId",
-            },
+        artist_data = await self._items(
+            SearchTerm=q,
+            IncludeItemTypes="MusicArtist",
+            Recursive="true",
+            Limit=limit,
+            Fields="PrimaryImageTag",
         )
-        r.raise_for_status()
-        data = r.json()
-        artists, albums, tracks, playlists = [], [], [], []
-        for x in data.get("Items") or []:
-            t = x.get("Type")
-            if t == "MusicArtist":
-                artists.append(self.normalize_artist(x))
-            elif t == "MusicAlbum":
-                albums.append(self.normalize_album(x))
-            elif t == "Audio":
-                tracks.append(self.normalize_track(x))
-            elif t == "Playlist":
+        album_data = await self._items(
+            SearchTerm=q,
+            IncludeItemTypes="MusicAlbum",
+            Recursive="true",
+            Limit=limit,
+            Fields="PrimaryImageTag,ProductionYear,ChildCount,AlbumArtist",
+        )
+        track_data = await self._items(
+            SearchTerm=q,
+            IncludeItemTypes="Audio",
+            Recursive="true",
+            Limit=limit,
+            Fields="PrimaryImageTag,Album,AlbumArtist,Artists,RunTimeTicks,AlbumId,ParentId",
+        )
+        playlist_data = await self._items(
+            SearchTerm=q,
+            IncludeItemTypes="Playlist",
+            Recursive="true",
+            Limit=limit,
+            Fields="PrimaryImageTag",
+        )
+
+        playlists = []
+        for x in playlist_data.get("Items") or []:
+            if x.get("Type") == "Playlist":
                 iid = x["Id"]
                 tag = _primary_tag(x)
                 playlists.append(
@@ -285,7 +295,12 @@ class JellyfinBrowser:
                         "imageUrl": f"/api/image/{iid}?maxWidth=320" if tag else None,
                     }
                 )
-        return {"artists": artists, "albums": albums, "tracks": tracks, "playlists": playlists}
+        return {
+            "artists": [self.normalize_artist(x) for x in artist_data.get("Items") or []],
+            "albums": [self.normalize_album(x) for x in album_data.get("Items") or []],
+            "tracks": [self.normalize_track(x) for x in track_data.get("Items") or []],
+            "playlists": playlists,
+        }
 
     async def fetch_primary_image(self, item_id: str, max_width: int = 480) -> tuple[bytes, str]:
         r = await self._client.get(

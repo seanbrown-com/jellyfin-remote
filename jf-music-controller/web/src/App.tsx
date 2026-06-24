@@ -5,6 +5,7 @@ import { Home } from "./pages/Home";
 import { Search } from "./pages/Search";
 import { Library } from "./pages/Library";
 import { Album } from "./pages/Album";
+import { Artist } from "./pages/Artist";
 import { NowPlaying } from "./pages/NowPlaying";
 
 function usePlayerStream() {
@@ -96,6 +97,7 @@ export default function App() {
         <Route path="search" element={<Search />} />
         <Route path="library" element={<Library />} />
         <Route path="album/:id" element={<Album />} />
+        <Route path="artist/:id" element={<Artist />} />
         <Route path="now" element={<NowPlaying />} />
       </Route>
     </Routes>

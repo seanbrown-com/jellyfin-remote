@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import type { Album, Track } from "../api";
 import { fetchAlbumTracks, fetchLibraryViews, playerPlay } from "../api";
@@ -33,6 +33,7 @@ function isTrack(x: Album | Track): x is Track {
 }
 
 export function Home() {
+  const navigate = useNavigate();
   const [data, setData] = useState<Awaited<ReturnType<typeof fetchLibraryViews>> | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -48,8 +49,9 @@ export function Home() {
       if (!ids.length) return;
       const queue = shuffle ? shuffleIds(ids) : ids;
       await playerPlay({ itemId: queue[0], mode: "replaceQueue", queue });
+      navigate("/now");
     },
-    [],
+    [navigate],
   );
 
   if (err) return <div className="muted">Failed to load home: {err}</div>;
@@ -95,7 +97,13 @@ export function Home() {
                       {t.artists.join(", ")} · {t.album}
                     </div>
                   </div>
-                  <button className="btn" type="button" onClick={() => void playerPlay({ itemId: t.id, mode: "playNow", queue: [] })}>
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => {
+                      void playerPlay({ itemId: t.id, mode: "replaceQueue", queue: [t.id] }).then(() => navigate("/now"));
+                    }}
+                  >
                     Play
                   </button>
                 </div>

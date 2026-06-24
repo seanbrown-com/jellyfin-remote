@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type { Album, Artist, Track } from "../api";
 import { fetchAlbums, fetchArtists, fetchPlaylistTracks, fetchPlaylists, fetchSongs, playerPlay } from "../api";
 
 type Tab = "artists" | "albums" | "songs" | "playlists";
 
 export function Library() {
+  const navigate = useNavigate();
   const [sp, setSp] = useSearchParams();
   const tab = (sp.get("tab") as Tab | null) || "albums";
   const playlistId = sp.get("playlist");
@@ -88,10 +89,12 @@ export function Library() {
       {tab === "artists" && artists ? (
         <div className="tracklist">
           {artists.map((a) => (
-            <div key={a.id} className="track" style={{ gridTemplateColumns: "1fr auto" }}>
-              <div className="name">{a.name}</div>
-              <span className="muted"> </span>
-            </div>
+            <Link key={a.id} to={`/artist/${a.id}`} style={{ display: "block" }}>
+              <div className="track" style={{ gridTemplateColumns: "1fr auto" }}>
+                <div className="name">{a.name}</div>
+                <span className="muted">→</span>
+              </div>
+            </Link>
           ))}
         </div>
       ) : null}
@@ -106,7 +109,13 @@ export function Library() {
                   {t.artists.join(", ")} · {t.album}
                 </div>
               </div>
-              <button className="btn" type="button" onClick={() => void playerPlay({ itemId: t.id, mode: "playNow", queue: [] })}>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  void playerPlay({ itemId: t.id, mode: "replaceQueue", queue: [t.id] }).then(() => navigate("/now"));
+                }}
+              >
                 Play
               </button>
             </div>
@@ -151,7 +160,7 @@ export function Library() {
                   itemId: plTracks[0]!.id,
                   mode: "replaceQueue",
                   queue: plTracks.map((t) => t.id),
-                });
+                }).then(() => navigate("/now"));
               }}
             >
               Play playlist
@@ -168,7 +177,13 @@ export function Library() {
                   <div className="name">{t.name}</div>
                   <div className="sub">{t.artists.join(", ")}</div>
                 </div>
-                <button className="btn" type="button" onClick={() => void playerPlay({ itemId: t.id, mode: "playNow", queue: plTracks.map((x) => x.id) })}>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => {
+                    void playerPlay({ itemId: t.id, mode: "replaceQueue", queue: plTracks.map((x) => x.id) }).then(() => navigate("/now"));
+                  }}
+                >
                   Play
                 </button>
               </div>

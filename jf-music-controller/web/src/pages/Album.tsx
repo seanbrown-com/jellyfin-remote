@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { fetchAlbum, fetchAlbumTracks, formatTime, playerPlay, ticksToSeconds, type Album, type Track } from "../api";
 
 export function Album() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [album, setAlbum] = useState<Album | null>(null);
   const [tracks, setTracks] = useState<Track[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -29,6 +30,7 @@ export function Album() {
     if (!ids.length) return;
     const queue = shuffle ? shuffleIds(ids) : ids;
     await playerPlay({ itemId: queue[0], mode: "replaceQueue", queue });
+    navigate("/now");
   };
 
   const img = album.imageUrl || `/api/image/${album.id}?maxWidth=900`;
@@ -65,7 +67,13 @@ export function Album() {
                 <div className="name">{t.name}</div>
                 <div className="sub">{formatTime(ticksToSeconds(t.durationTicks))}</div>
               </div>
-              <button className="btn" type="button" onClick={() => void playerPlay({ itemId: t.id, mode: "playNow", queue: ids })}>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  void playerPlay({ itemId: t.id, mode: "replaceQueue", queue: ids }).then(() => navigate("/now"));
+                }}
+              >
                 Play
               </button>
             </div>

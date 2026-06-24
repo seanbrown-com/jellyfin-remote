@@ -63,13 +63,13 @@ export function NowPlaying() {
 
       <div className="controls">
         <button className="bigbtn" type="button" onClick={() => void playerPrevious()} aria-label="Previous">
-          ⏮
+          <span className="control-icon previous" aria-hidden="true" />
         </button>
         <button className="bigbtn play" type="button" onClick={() => void toggle()} aria-label="Play pause">
-          {player?.state === "playing" ? "⏸" : "▶"}
+          <span className={`control-icon ${player?.state === "playing" ? "pause" : "play"}`} aria-hidden="true" />
         </button>
         <button className="bigbtn" type="button" onClick={() => void playerNext()} aria-label="Next">
-          ⏭
+          <span className="control-icon next" aria-hidden="true" />
         </button>
       </div>
 

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { Album, Artist, Track } from "../api";
 import { playerPlay, searchMusic } from "../api";
 
 export function Search() {
+  const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [res, setRes] = useState<Awaited<ReturnType<typeof searchMusic>> | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -46,7 +47,7 @@ export function Search() {
             <h2>Artists</h2>
             <div className="tracklist">
               {res.artists.map((a: Artist) => (
-                <Link key={a.id} to={`/library?tab=artists`} style={{ display: "block" }}>
+                <Link key={a.id} to={`/artist/${a.id}`} style={{ display: "block" }}>
                   <div className="track" style={{ gridTemplateColumns: "1fr auto" }}>
                     <div className="name">{a.name}</div>
                     <span className="muted">→</span>
@@ -71,7 +72,13 @@ export function Search() {
                       {t.artists.join(", ")} · {t.album}
                     </div>
                   </div>
-                  <button className="btn" type="button" onClick={() => void playerPlay({ itemId: t.id, mode: "playNow", queue: [] })}>
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => {
+                      void playerPlay({ itemId: t.id, mode: "replaceQueue", queue: [t.id] }).then(() => navigate("/now"));
+                    }}
+                  >
                     Play
                   </button>
                 </div>

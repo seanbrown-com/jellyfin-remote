@@ -75,6 +75,10 @@ export async function fetchArtists() {
   return j<Artist[]>("/api/artists?limit=200");
 }
 
+export async function fetchArtistAlbums(artistId: string) {
+  return j<Album[]>(`/api/artists/${artistId}/albums`);
+}
+
 export async function fetchAlbums() {
   return j<Album[]>("/api/albums?limit=200");
 }
