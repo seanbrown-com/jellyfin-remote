@@ -23,6 +23,10 @@ def _ctx(request: Request, **extra: Any) -> dict[str, Any]:
     return {"request": request, **extra}
 
 
+def _render(name: str, context: dict[str, Any], *, status_code: int = 200) -> HTMLResponse:
+    return _TEMPLATES.TemplateResponse(context["request"], name, context, status_code=status_code)
+
+
 def _template_flat(data: dict[str, Any]) -> dict[str, Any]:
     cfg = AppConfig.from_yaml_dict(data, config_path=None)
     jf = cfg.jellyfin
@@ -76,14 +80,14 @@ def register_admin(app: FastAPI, paths: SecurePaths) -> None:
     async def admin_login_get(request: Request):
         if paths.admin_configured() and request.session.get("admin") == "1":
             return RedirectResponse("/admin/", status_code=303)
-        return _TEMPLATES.TemplateResponse("login.html", _ctx(request, service=service, error=None))
+        return _render("login.html", _ctx(request, service=service, error=None))
 
     @router.post("/login", response_class=HTMLResponse)
     async def admin_login_post(request: Request, password: str = Form(...)):
         if not paths.admin_configured():
             return RedirectResponse("/admin/setup", status_code=303)
         if not paths.verify_admin_password(password):
-            return _TEMPLATES.TemplateResponse(
+            return _render(
                 "login.html",
                 _ctx(request, service=service, error="Invalid password."),
                 status_code=401,
@@ -102,7 +106,7 @@ def register_admin(app: FastAPI, paths: SecurePaths) -> None:
             return RedirectResponse("/admin/login", status_code=303)
         raw = paths.load_config_dict()
         flat = _template_flat(raw if raw else {})
-        return _TEMPLATES.TemplateResponse("setup.html", _ctx(request, service=service, error=None, **flat))
+        return _render("setup.html", _ctx(request, service=service, error=None, **flat))
 
     @router.post("/setup", response_class=HTMLResponse)
     async def admin_setup_post(
@@ -136,7 +140,7 @@ def register_admin(app: FastAPI, paths: SecurePaths) -> None:
                     "renderer": {},
                 },
             )
-            return _TEMPLATES.TemplateResponse(
+            return _render(
                 "setup.html",
                 _ctx(request, service=service, error="Passwords do not match.", **flat),
                 status_code=400,
@@ -157,7 +161,7 @@ def register_admin(app: FastAPI, paths: SecurePaths) -> None:
         data = _dict_from_form_renderer(form)
         if "jellyfin" not in data:
             flat = _template_flat(data)
-            return _TEMPLATES.TemplateResponse(
+            return _render(
                 "setup.html",
                 _ctx(request, service=service, error="Jellyfin base URL, API key, and user id are required.", **flat),
                 status_code=400,
@@ -183,7 +187,7 @@ def register_admin(app: FastAPI, paths: SecurePaths) -> None:
             return RedirectResponse("/admin/login", status_code=303)
         raw = paths.load_config_dict()
         flat = _template_flat(raw)
-        return _TEMPLATES.TemplateResponse(
+        return _render(
             "dashboard_renderer.html",
             _ctx(request, service=service, error=None, message=None, encrypted=paths.using_encrypted_store(), **flat),
         )
@@ -213,7 +217,7 @@ def register_admin(app: FastAPI, paths: SecurePaths) -> None:
             if new_password != new_password2:
                 raw = paths.load_config_dict()
                 flat = _template_flat(raw)
-                return _TEMPLATES.TemplateResponse(
+                return _render(
                     "dashboard_renderer.html",
                     _ctx(
                         request,
@@ -244,7 +248,7 @@ def register_admin(app: FastAPI, paths: SecurePaths) -> None:
         if "jellyfin" not in data:
             raw = paths.load_config_dict()
             flat = _template_flat(raw)
-            return _TEMPLATES.TemplateResponse(
+            return _render(
                 "dashboard_renderer.html",
                 _ctx(
                     request,
@@ -258,7 +262,7 @@ def register_admin(app: FastAPI, paths: SecurePaths) -> None:
             )
         paths.save_encrypted_config(data)
         flat = _template_flat(data)
-        return _TEMPLATES.TemplateResponse(
+        return _render(
             "dashboard_renderer.html",
             _ctx(
                 request,
