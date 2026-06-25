@@ -33,7 +33,7 @@ export function Album() {
     navigate("/now");
   };
 
-  const img = album.imageUrl || `/api/image/${album.id}?maxWidth=900`;
+  const img = album.imageUrl || "/cover-placeholder.svg";
 
   return (
     <div>

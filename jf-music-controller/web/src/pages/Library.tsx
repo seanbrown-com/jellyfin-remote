@@ -116,7 +116,7 @@ export function Library() {
           <div className="grid">
             {albums.map((a) => (
               <Link id={itemId("library-album", a.id)} className="card scroll-target" key={a.id} to={`/album/${a.id}`}>
-                <img className="cover" src={a.imageUrl || `/api/image/${a.id}?maxWidth=320`} alt="" loading="lazy" />
+                <img className="cover" src={a.imageUrl || "/cover-placeholder.svg"} alt="" loading="lazy" />
                 <div className="meta">
                   <div className="title">{a.name}</div>
                   <div className="sub">{a.artist}</div>

@@ -96,7 +96,7 @@ export function Search() {
 }
 
 function AlbumCard({ a }: { a: Album }) {
-  const img = a.imageUrl || `/api/image/${a.id}?maxWidth=320`;
+  const img = a.imageUrl || "/cover-placeholder.svg";
   return (
     <Link className="card" to={`/album/${a.id}`}>
       <img className="cover" src={img} alt="" loading="lazy" />

@@ -107,7 +107,7 @@ export function NowPlaying() {
         <div className="next-up">
           <h2>Next Up</h2>
           <div className="next-card">
-            <img src={nextUp.imageUrl || `/api/image/${nextUp.id}?maxWidth=160`} alt="" />
+            <img src={nextUp.imageUrl || "/cover-placeholder.svg"} alt="" />
             <div style={{ minWidth: 0 }}>
               <div className="name">{nextUp.name}</div>
               <div className="sub">{nextUp.artists.join(", ")}</div>

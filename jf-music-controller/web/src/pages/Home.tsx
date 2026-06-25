@@ -4,7 +4,7 @@ import type { Album, Track } from "../api";
 import { fetchAlbumTracks, fetchLibraryViews, playerEnqueue, playerPlay } from "../api";
 
 function AlbumCard({ a }: { a: Album }) {
-  const img = a.imageUrl || `/api/image/${a.id}?maxWidth=320`;
+  const img = a.imageUrl || "/cover-placeholder.svg";
   return (
     <Link className="card" to={`/album/${a.id}`}>
       <img className="cover" src={img} alt="" loading="lazy" />
