@@ -48,6 +48,16 @@ async function j<T>(path: string, init?: RequestInit): Promise<T> {
   return (await r.json()) as T;
 }
 
+async function fetchAllPages<T>(path: string, pageSize = 500): Promise<T[]> {
+  const out: T[] = [];
+  for (let start = 0; ; start += pageSize) {
+    const p = new URLSearchParams({ start: String(start), limit: String(pageSize) });
+    const page = await j<T[]>(`${path}?${p}`);
+    out.push(...page);
+    if (page.length < pageSize) return out;
+  }
+}
+
 export async function fetchLibraryViews() {
   return j<{
     recentlyAddedAlbums: Album[];
@@ -81,7 +91,7 @@ export async function fetchTrack(trackId: string) {
 }
 
 export async function fetchArtists() {
-  return j<Artist[]>("/api/artists?limit=200");
+  return fetchAllPages<Artist>("/api/artists");
 }
 
 export async function fetchArtistAlbums(artistId: string) {
@@ -89,11 +99,11 @@ export async function fetchArtistAlbums(artistId: string) {
 }
 
 export async function fetchAlbums() {
-  return j<Album[]>("/api/albums?limit=200");
+  return fetchAllPages<Album>("/api/albums");
 }
 
 export async function fetchSongs() {
-  return j<Track[]>("/api/songs?limit=200");
+  return fetchAllPages<Track>("/api/songs");
 }
 
 export async function fetchPlaylists() {

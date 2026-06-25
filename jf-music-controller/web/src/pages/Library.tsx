@@ -133,11 +133,7 @@ export function Library() {
           <div className="grid">
             {artists.map((a) => (
               <Link id={itemId("library-artist", a.id)} className="card scroll-target" key={a.id} to={`/artist/${a.id}`}>
-                {a.imageUrl ? (
-                  <img className="cover" src={a.imageUrl} alt="" loading="lazy" />
-                ) : (
-                  <div className="cover artist-placeholder">{a.name.trim().charAt(0).toUpperCase() || "?"}</div>
-                )}
+                <img className="cover" src={a.imageUrl || "/artist-placeholder.svg"} alt="" loading="lazy" />
                 <div className="meta">
                   <div className="title">{a.name}</div>
                   <div className="sub">Artist</div>

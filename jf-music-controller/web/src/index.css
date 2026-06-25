@@ -38,12 +38,21 @@ body,
 
 body {
   margin: 0;
-  background: radial-gradient(1200px 600px at 20% -10%, rgba(139, 92, 246, 0.35), transparent 55%),
-    radial-gradient(900px 500px at 110% 10%, rgba(251, 113, 133, 0.18), transparent 50%), var(--bg);
+  background: var(--bg);
   color: var(--text);
 }
 
-:root[data-theme="light"] body {
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(1200px 600px at 20% -10%, rgba(139, 92, 246, 0.35), transparent 55%),
+    radial-gradient(900px 500px at 110% 10%, rgba(251, 113, 133, 0.18), transparent 50%), var(--bg);
+}
+
+:root[data-theme="light"] body::before {
   background: linear-gradient(180deg, rgba(109, 93, 252, 0.1), transparent 280px), var(--bg);
 }
 
@@ -97,15 +106,6 @@ h1 {
   object-fit: cover;
   display: block;
   background: #222;
-}
-
-.artist-placeholder {
-  display: grid;
-  place-items: center;
-  color: var(--text);
-  font-size: clamp(2rem, 10vw, 4.5rem);
-  font-weight: 800;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.45), rgba(251, 113, 133, 0.25)), var(--bg-elev);
 }
 
 .scroll-target {

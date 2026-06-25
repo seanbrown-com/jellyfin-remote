@@ -116,7 +116,7 @@ class MpvController:
                             fut.set_result(msg.get("data"))
                 elif msg.get("event") == "end-file":
                     reason = (msg.get("reason") or "").lower()
-                    if reason in ("eof", "stop", "") and self._on_end_file:
+                    if reason == "eof" and self._on_end_file:
                         asyncio.create_task(self._on_end_file())
         except asyncio.CancelledError:
             raise
