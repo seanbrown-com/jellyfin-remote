@@ -1,9 +1,47 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type { Album, Artist, Track } from "../api";
-import { fetchAlbums, fetchArtists, fetchPlaylistTracks, fetchPlaylists, fetchSongs, playerPlay } from "../api";
+import { fetchAlbums, fetchArtists, fetchPlaylistTracks, fetchPlaylists, fetchSongs, playerEnqueue, playerPlay } from "../api";
 
 type Tab = "artists" | "albums" | "songs" | "playlists";
+type Indexed = { id: string; name: string };
+
+const INDEX_KEYS = ["0", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
+
+function indexKey(name: string) {
+  const first = name.trim().charAt(0).toUpperCase();
+  if (!first) return "0";
+  if (first >= "0" && first <= "9") return "0";
+  if (first >= "A" && first <= "Z") return first;
+  return "0";
+}
+
+function itemId(prefix: string, id: string) {
+  return `${prefix}-${id}`;
+}
+
+function AlphabetIndex({ items, prefix }: { items: Indexed[]; prefix: string }) {
+  const jump = (key: string) => {
+    const wanted = INDEX_KEYS.indexOf(key);
+    const target =
+      items.find((item) => {
+        const current = INDEX_KEYS.indexOf(indexKey(item.name));
+        return key === "0" ? current === wanted : current >= wanted;
+      }) || null;
+    if (!target) return;
+    document.getElementById(itemId(prefix, target.id))?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  return (
+    <div className="az-index" aria-label="Jump by first character">
+      {INDEX_KEYS.map((key) => (
+        <button key={key} type="button" onClick={() => jump(key)}>
+          {key}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function Library() {
   const navigate = useNavigate();
@@ -73,78 +111,99 @@ export function Library() {
       {err ? <div className="muted">{err}</div> : null}
 
       {tab === "albums" && albums ? (
-        <div className="grid">
-          {albums.map((a) => (
-            <Link className="card" key={a.id} to={`/album/${a.id}`}>
-              <img className="cover" src={a.imageUrl || `/api/image/${a.id}?maxWidth=320`} alt="" loading="lazy" />
-              <div className="meta">
-                <div className="title">{a.name}</div>
-                <div className="sub">{a.artist}</div>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <>
+          <AlphabetIndex prefix="library-album" items={albums.map((a) => ({ id: a.id, name: a.name }))} />
+          <div className="grid">
+            {albums.map((a) => (
+              <Link id={itemId("library-album", a.id)} className="card scroll-target" key={a.id} to={`/album/${a.id}`}>
+                <img className="cover" src={a.imageUrl || `/api/image/${a.id}?maxWidth=320`} alt="" loading="lazy" />
+                <div className="meta">
+                  <div className="title">{a.name}</div>
+                  <div className="sub">{a.artist}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </>
       ) : null}
 
       {tab === "artists" && artists ? (
-        <div className="tracklist">
-          {artists.map((a) => (
-            <Link key={a.id} to={`/artist/${a.id}`} style={{ display: "block" }}>
-              <div className="track" style={{ gridTemplateColumns: "1fr auto" }}>
-                <div className="name">{a.name}</div>
-                <span className="muted">→</span>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <>
+          <AlphabetIndex prefix="library-artist" items={artists.map((a) => ({ id: a.id, name: a.name }))} />
+          <div className="grid">
+            {artists.map((a) => (
+              <Link id={itemId("library-artist", a.id)} className="card scroll-target" key={a.id} to={`/artist/${a.id}`}>
+                {a.imageUrl ? (
+                  <img className="cover" src={a.imageUrl} alt="" loading="lazy" />
+                ) : (
+                  <div className="cover artist-placeholder">{a.name.trim().charAt(0).toUpperCase() || "?"}</div>
+                )}
+                <div className="meta">
+                  <div className="title">{a.name}</div>
+                  <div className="sub">Artist</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </>
       ) : null}
 
       {tab === "songs" && songs ? (
-        <div className="tracklist">
-          {songs.map((t) => (
-            <div key={t.id} className="track" style={{ gridTemplateColumns: "1fr auto" }}>
-              <div>
-                <div className="name">{t.name}</div>
-                <div className="sub">
-                  {t.artists.join(", ")} · {t.album}
+        <>
+          <AlphabetIndex prefix="library-song" items={songs.map((t) => ({ id: t.id, name: t.name }))} />
+          <div className="tracklist">
+            {songs.map((t) => (
+              <div id={itemId("library-song", t.id)} key={t.id} className="track scroll-target" style={{ gridTemplateColumns: "1fr auto auto" }}>
+                <div>
+                  <div className="name">{t.name}</div>
+                  <div className="sub">
+                    {t.artists.join(", ")} · {t.album}
+                  </div>
                 </div>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => {
+                    void playerPlay({ itemId: t.id, mode: "replaceQueue", queue: [t.id], defaultQueue: true }).then(() => navigate("/now"));
+                  }}
+                >
+                  Play
+                </button>
+                <button className="btn ghost" type="button" onClick={() => void playerEnqueue({ itemId: t.id })}>
+                  Queue
+                </button>
               </div>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => {
-                  void playerPlay({ itemId: t.id, mode: "replaceQueue", queue: [t.id] }).then(() => navigate("/now"));
-                }}
-              >
-                Play
-              </button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       ) : null}
 
       {tab === "playlists" && playlists && !playlistId ? (
-        <div className="tracklist">
-          {playlists.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              className="track"
-              style={{ width: "100%", border: "none", background: "transparent", color: "inherit", cursor: "pointer" }}
-              onClick={() => {
-                const next = new URLSearchParams(sp);
-                next.set("tab", "playlists");
-                next.set("playlist", p.id);
-                setSp(next);
-              }}
-            >
-              <div style={{ textAlign: "left" }}>
-                <div className="name">{p.name}</div>
-                <div className="sub">Playlist</div>
-              </div>
-            </button>
-          ))}
-        </div>
+        <>
+          <AlphabetIndex prefix="library-playlist" items={playlists.map((p) => ({ id: p.id, name: p.name }))} />
+          <div className="tracklist">
+            {playlists.map((p) => (
+              <button
+                id={itemId("library-playlist", p.id)}
+                key={p.id}
+                type="button"
+                className="track scroll-target"
+                style={{ width: "100%", border: "none", background: "transparent", color: "inherit", cursor: "pointer" }}
+                onClick={() => {
+                  const next = new URLSearchParams(sp);
+                  next.set("tab", "playlists");
+                  next.set("playlist", p.id);
+                  setSp(next);
+                }}
+              >
+                <div style={{ textAlign: "left" }}>
+                  <div className="name">{p.name}</div>
+                  <div className="sub">Playlist</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
       ) : null}
 
       {tab === "playlists" && playlistId && plTracks ? (
@@ -169,9 +228,10 @@ export function Library() {
               Back
             </button>
           </div>
+          <AlphabetIndex prefix="library-playlist-track" items={plTracks.map((t) => ({ id: t.id, name: t.name }))} />
           <div className="tracklist">
             {plTracks.map((t, idx) => (
-              <div key={t.id} className="track">
+              <div id={itemId("library-playlist-track", t.id)} key={t.id} className="track scroll-target" style={{ gridTemplateColumns: "44px 1fr auto auto" }}>
                 <div className="idx">{idx + 1}</div>
                 <div>
                   <div className="name">{t.name}</div>
@@ -185,6 +245,9 @@ export function Library() {
                   }}
                 >
                   Play
+                </button>
+                <button className="btn ghost" type="button" onClick={() => void playerEnqueue({ itemId: t.id })}>
+                  Queue
                 </button>
               </div>
             ))}

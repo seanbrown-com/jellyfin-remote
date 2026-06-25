@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { fetchAlbum, fetchAlbumTracks, formatTime, playerPlay, ticksToSeconds, type Album, type Track } from "../api";
+import { fetchAlbum, fetchAlbumTracks, formatTime, playerEnqueue, playerPlay, ticksToSeconds, type Album, type Track } from "../api";
 
 export function Album() {
   const { id } = useParams();
@@ -29,7 +29,7 @@ export function Album() {
   const playAll = async (shuffle: boolean) => {
     if (!ids.length) return;
     const queue = shuffle ? shuffleIds(ids) : ids;
-    await playerPlay({ itemId: queue[0], mode: "replaceQueue", queue });
+    await playerPlay({ itemId: queue[0], mode: "replaceQueue", queue, defaultQueue: true });
     navigate("/now");
   };
 
@@ -61,7 +61,7 @@ export function Album() {
         <h2>Tracks</h2>
         <div className="tracklist">
           {tracks.map((t) => (
-            <div key={t.id} className="track">
+            <div key={t.id} className="track" style={{ gridTemplateColumns: "44px 1fr auto auto" }}>
               <div className="idx">{t.indexNumber ?? ""}</div>
               <div>
                 <div className="name">{t.name}</div>
@@ -71,10 +71,13 @@ export function Album() {
                 className="btn"
                 type="button"
                 onClick={() => {
-                  void playerPlay({ itemId: t.id, mode: "replaceQueue", queue: ids }).then(() => navigate("/now"));
+                  void playerPlay({ itemId: t.id, mode: "replaceQueue", queue: ids, defaultQueue: true }).then(() => navigate("/now"));
                 }}
               >
                 Play
+              </button>
+              <button className="btn ghost" type="button" onClick={() => void playerEnqueue({ itemId: t.id })}>
+                Queue
               </button>
             </div>
           ))}

@@ -7,7 +7,7 @@ from pathlib import Path
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 
 from jf_music_controller.admin_portal import register_admin
 from jf_music_controller.config import AppConfig
@@ -32,6 +32,7 @@ def create_app(cfg: AppConfig, paths: SecurePaths) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.cfg = cfg
+        app.state.manual_queue = []
         if has and jf is not None and render is not None:
             app.state.jf = jf
             app.state.render = render
@@ -170,7 +171,48 @@ def create_app(cfg: AppConfig, paths: SecurePaths) -> FastAPI:
 
     @app.post("/api/player/play")
     async def api_player_play(request: Request):
-        return await _proxy_player_post(request, "/player/play")
+        payload = await request.json()
+        item_id = payload.get("itemId")
+        if payload.get("defaultQueue") and item_id and payload.get("mode") == "replaceQueue":
+            payload["queue"] = await jf.default_queue_for_track(str(item_id))
+            payload.pop("defaultQueue", None)
+        if payload.get("mode") == "replaceQueue":
+            request.app.state.manual_queue = []
+        r = await render.post("/player/play", json=payload, headers=rh)
+        return Response(r.content, status_code=r.status_code, media_type="application/json")
+
+    @app.post("/api/player/enqueue")
+    async def api_player_enqueue(request: Request):
+        payload = await request.json()
+        item_ids = [str(x) for x in payload.get("queue") or [] if x]
+        item_id = payload.get("itemId")
+        if item_id and str(item_id) not in item_ids:
+            item_ids = [str(item_id)] + item_ids
+        if not item_ids:
+            return JSONResponse({"ok": False, "detail": "No item ids supplied."}, status_code=400)
+
+        qr = await render.get("/player/queue", headers=rh)
+        if qr.status_code >= 400:
+            return Response(qr.content, status_code=qr.status_code, media_type="application/json")
+        current = qr.json()
+        existing = [str(x) for x in current.get("itemIds") or []]
+        index = int(current.get("index") or 0)
+        if not existing:
+            next_items = item_ids
+            request.app.state.manual_queue = item_ids
+        else:
+            insert_at = max(0, min(index + 1, len(existing)))
+            head = existing[:insert_at]
+            remaining = existing[insert_at:]
+            manual = [x for x in request.app.state.manual_queue if x in remaining and x not in item_ids]
+            manual.extend(item_ids)
+            manual_set = set(manual)
+            tail = [x for x in remaining if x not in manual_set]
+            next_items = head + manual + tail
+            request.app.state.manual_queue = manual
+
+        r = await render.post("/player/queue", json={"itemIds": next_items}, headers=rh)
+        return Response(r.content, status_code=r.status_code, media_type="application/json")
 
     @app.post("/api/player/pause")
     async def api_player_pause(request: Request):

@@ -7,6 +7,7 @@ import { Library } from "./pages/Library";
 import { Album } from "./pages/Album";
 import { Artist } from "./pages/Artist";
 import { NowPlaying } from "./pages/NowPlaying";
+import { Settings } from "./pages/Settings";
 
 function usePlayerStream() {
   const [state, setState] = useState<PlayerState | null>(null);
@@ -54,10 +55,16 @@ function MiniPlayer({ state }: { state: PlayerState | null }) {
 function Layout() {
   const state = usePlayerStream();
   const loc = useLocation();
+  const [theme, setTheme] = useState(() => window.localStorage.getItem("jf-theme") || "dark");
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem("jf-theme", theme);
+  }, [theme]);
   const tab = useMemo(() => {
     if (loc.pathname.startsWith("/search")) return "search";
-    if (loc.pathname.startsWith("/library") || loc.pathname.startsWith("/album")) return "library";
+    if (loc.pathname.startsWith("/library") || loc.pathname.startsWith("/album") || loc.pathname.startsWith("/artist")) return "library";
     if (loc.pathname.startsWith("/now")) return "now";
+    if (loc.pathname.startsWith("/settings")) return "settings";
     return "home";
   }, [loc.pathname]);
 
@@ -65,7 +72,7 @@ function Layout() {
     <div className="shell">
       <div className="page">
         <MiniPlayer state={state} />
-        <Outlet context={{ player: state }} />
+        <Outlet context={{ player: state, theme, setTheme }} />
       </div>
       <nav className="nav">
         <NavLink className={({ isActive }) => (isActive ? "active" : "")} to="/" end>
@@ -84,6 +91,10 @@ function Layout() {
           <span style={{ fontSize: "1.1rem" }}>♪</span>
           Now
         </NavLink>
+        <NavLink className={({ isActive }) => (isActive || tab === "settings" ? "active" : "")} to="/settings">
+          <span style={{ fontSize: "1.1rem" }}>⚙</span>
+          Settings
+        </NavLink>
       </nav>
     </div>
   );
@@ -99,6 +110,7 @@ export default function App() {
         <Route path="album/:id" element={<Album />} />
         <Route path="artist/:id" element={<Artist />} />
         <Route path="now" element={<NowPlaying />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>
   );

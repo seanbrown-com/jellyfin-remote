@@ -34,6 +34,11 @@ export type PlayerState = {
   imageTag?: string | null;
 };
 
+export type PlayerQueue = {
+  itemIds: string[];
+  index: number;
+};
+
 async function j<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(path, init);
   if (!r.ok) {
@@ -71,6 +76,10 @@ export async function fetchAlbumTracks(albumId: string) {
   return j<Track[]>(`/api/albums/${albumId}/tracks`);
 }
 
+export async function fetchTrack(trackId: string) {
+  return j<Track>(`/api/tracks/${trackId}`);
+}
+
 export async function fetchArtists() {
   return j<Artist[]>("/api/artists?limit=200");
 }
@@ -99,8 +108,17 @@ export async function playerPlay(body: {
   itemId?: string | null;
   mode: "replaceQueue" | "append" | "playNow";
   queue: string[];
+  defaultQueue?: boolean;
 }) {
   await j("/api/player/play", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function playerEnqueue(body: { itemId?: string | null; queue?: string[] }) {
+  await j("/api/player/enqueue", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -141,6 +159,10 @@ export async function playerVolume(volume: number) {
 
 export async function fetchPlayerState() {
   return j<PlayerState>("/api/player/state");
+}
+
+export async function fetchPlayerQueue() {
+  return j<PlayerQueue>("/api/player/queue");
 }
 
 export function ticksToSeconds(ticks?: number | null) {

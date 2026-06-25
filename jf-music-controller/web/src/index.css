@@ -14,6 +14,18 @@
     "Segoe UI Emoji";
 }
 
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f7f7fb;
+  --bg-elev: #ffffff;
+  --bg-card: #ffffff;
+  --border: rgba(20, 20, 35, 0.12);
+  --text: #171724;
+  --muted: #66677a;
+  --accent: #6d5dfc;
+  --accent-2: #d94668;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -29,6 +41,10 @@ body {
   background: radial-gradient(1200px 600px at 20% -10%, rgba(139, 92, 246, 0.35), transparent 55%),
     radial-gradient(900px 500px at 110% 10%, rgba(251, 113, 133, 0.18), transparent 50%), var(--bg);
   color: var(--text);
+}
+
+:root[data-theme="light"] body {
+  background: linear-gradient(180deg, rgba(109, 93, 252, 0.1), transparent 280px), var(--bg);
 }
 
 a {
@@ -68,7 +84,7 @@ h1 {
 }
 
 .card {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -81,6 +97,19 @@ h1 {
   object-fit: cover;
   display: block;
   background: #222;
+}
+
+.artist-placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  font-size: clamp(2rem, 10vw, 4.5rem);
+  font-weight: 800;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.45), rgba(251, 113, 133, 0.25)), var(--bg-elev);
+}
+
+.scroll-target {
+  scroll-margin-top: 74px;
 }
 
 .card .meta {
@@ -116,6 +145,43 @@ h1 {
   gap: 10px;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.az-index {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  display: grid;
+  grid-template-columns: repeat(27, minmax(28px, 1fr));
+  gap: 4px;
+  margin: 0 -2px 12px;
+  padding: 8px 0;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(10px);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.az-index::-webkit-scrollbar {
+  display: none;
+}
+
+.az-index button {
+  min-width: 0;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  padding: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.az-index button:hover {
+  color: var(--text);
+  border-color: rgba(139, 92, 246, 0.45);
 }
 
 .btn {
@@ -193,7 +259,7 @@ h1 {
   background: rgba(10, 10, 15, 0.72);
   backdrop-filter: blur(14px);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   align-items: center;
   z-index: 20;
 }
@@ -206,7 +272,7 @@ h1 {
   justify-content: center;
   gap: 4px;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
 }
 
 .nav a.active {
@@ -264,6 +330,10 @@ h1 {
   margin-top: 6px;
 }
 
+.np .album-title {
+  margin-top: 2px;
+}
+
 .slider {
   width: 100%;
   accent-color: var(--accent);
@@ -275,6 +345,52 @@ h1 {
   align-items: center;
   gap: 18px;
   margin-top: 14px;
+}
+
+.next-up {
+  margin-top: 22px;
+}
+
+.next-up h2 {
+  font-size: 0.78rem;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.next-card,
+.settings-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.next-card {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+}
+
+.next-card img {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #222;
+}
+
+.next-card .name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-card {
+  padding: 14px;
 }
 
 .bigbtn {

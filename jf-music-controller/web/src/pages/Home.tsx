@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import type { Album, Track } from "../api";
-import { fetchAlbumTracks, fetchLibraryViews, playerPlay } from "../api";
+import { fetchAlbumTracks, fetchLibraryViews, playerEnqueue, playerPlay } from "../api";
 
 function AlbumCard({ a }: { a: Album }) {
   const img = a.imageUrl || `/api/image/${a.id}?maxWidth=320`;
@@ -48,7 +48,7 @@ export function Home() {
       const ids = (await fetchAlbumTracks(album.id)).map((t) => t.id);
       if (!ids.length) return;
       const queue = shuffle ? shuffleIds(ids) : ids;
-      await playerPlay({ itemId: queue[0], mode: "replaceQueue", queue });
+      await playerPlay({ itemId: queue[0], mode: "replaceQueue", queue, defaultQueue: true });
       navigate("/now");
     },
     [navigate],
@@ -90,7 +90,7 @@ export function Home() {
             if (isTrack(x)) {
               const t = x;
               return (
-                <div key={`t-${t.id}`} className="track" style={{ gridTemplateColumns: "1fr auto" }}>
+                <div key={`t-${t.id}`} className="track" style={{ gridTemplateColumns: "1fr auto auto" }}>
                   <div>
                     <div className="name">{t.name}</div>
                     <div className="sub">
@@ -101,10 +101,13 @@ export function Home() {
                     className="btn"
                     type="button"
                     onClick={() => {
-                      void playerPlay({ itemId: t.id, mode: "replaceQueue", queue: [t.id] }).then(() => navigate("/now"));
+                      void playerPlay({ itemId: t.id, mode: "replaceQueue", queue: [t.id], defaultQueue: true }).then(() => navigate("/now"));
                     }}
                   >
                     Play
+                  </button>
+                  <button className="btn ghost" type="button" onClick={() => void playerEnqueue({ itemId: t.id })}>
+                    Queue
                   </button>
                 </div>
               );

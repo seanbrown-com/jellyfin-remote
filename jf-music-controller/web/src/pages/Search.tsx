@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { Album, Artist, Track } from "../api";
-import { playerPlay, searchMusic } from "../api";
+import { playerEnqueue, playerPlay, searchMusic } from "../api";
 
 export function Search() {
   const navigate = useNavigate();
@@ -65,7 +65,7 @@ export function Search() {
             <h2>Tracks</h2>
             <div className="tracklist">
               {res.tracks.map((t: Track) => (
-                <div key={t.id} className="track" style={{ gridTemplateColumns: "1fr auto" }}>
+                <div key={t.id} className="track" style={{ gridTemplateColumns: "1fr auto auto" }}>
                   <div>
                     <div className="name">{t.name}</div>
                     <div className="sub">
@@ -76,10 +76,13 @@ export function Search() {
                     className="btn"
                     type="button"
                     onClick={() => {
-                      void playerPlay({ itemId: t.id, mode: "replaceQueue", queue: [t.id] }).then(() => navigate("/now"));
+                      void playerPlay({ itemId: t.id, mode: "replaceQueue", queue: [t.id], defaultQueue: true }).then(() => navigate("/now"));
                     }}
                   >
                     Play
+                  </button>
+                  <button className="btn ghost" type="button" onClick={() => void playerEnqueue({ itemId: t.id })}>
+                    Queue
                   </button>
                 </div>
               ))}

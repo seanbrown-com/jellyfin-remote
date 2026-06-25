@@ -1,25 +1,54 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import type { PlayerState } from "../api";
-import { formatTime, playerNext, playerPause, playerPrevious, playerResume, playerSeek, playerVolume } from "../api";
+import type { PlayerState, Track } from "../api";
+import { fetchPlayerQueue, fetchTrack, formatTime, playerNext, playerPause, playerPrevious, playerResume, playerSeek } from "../api";
 
 type Ctx = { player: PlayerState | null };
 
 export function NowPlaying() {
   const { player: live } = useOutletContext<Ctx>();
   const [dragPos, setDragPos] = useState<number | null>(null);
-  const [dragVol, setDragVol] = useState<number | null>(null);
+  const [nextUp, setNextUp] = useState<Track | null>(null);
 
   const player = live;
 
   const duration = player?.duration ?? 0;
   const position = dragPos ?? player?.position ?? 0;
-  const volume = dragVol ?? player?.volume ?? 80;
 
   const img = player?.itemId ? `/api/image/${player.itemId}?maxWidth=900` : undefined;
 
   const title = player?.title || "Nothing playing";
-  const subtitle = (player?.artists && player.artists.join(", ")) || player?.album || "";
+  const artists = (player?.artists && player.artists.join(", ")) || "";
+  const album = player?.album || "";
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadNextUp() {
+      if (!player?.itemId) {
+        setNextUp(null);
+        return;
+      }
+      try {
+        const queue = await fetchPlayerQueue();
+        const index = queue.itemIds.indexOf(player.itemId);
+        const nextId = queue.itemIds[index >= 0 ? index + 1 : queue.index + 1];
+        if (!nextId) {
+          setNextUp(null);
+          return;
+        }
+        const track = await fetchTrack(nextId);
+        if (!cancelled) setNextUp(track);
+      } catch {
+        if (!cancelled) setNextUp(null);
+      }
+    }
+    void loadNextUp();
+    const timer = window.setInterval(() => void loadNextUp(), 2500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [player?.itemId]);
 
   const toggle = async () => {
     if (!player?.itemId) return;
@@ -33,7 +62,8 @@ export function NowPlaying() {
     <div className="np">
       {img ? <img className="art" src={img} alt="" /> : <div className="art" />}
       <div className="title">{title}</div>
-      <div className="sub">{subtitle}</div>
+      <div className="sub">{artists}</div>
+      {album ? <div className="sub album-title">{album}</div> : null}
 
       <div style={{ marginTop: 14 }}>
         <input
@@ -73,30 +103,19 @@ export function NowPlaying() {
         </button>
       </div>
 
-      <div style={{ marginTop: 18 }}>
-        <div className="muted" style={{ marginBottom: 6 }}>
-          Volume
+      {nextUp ? (
+        <div className="next-up">
+          <h2>Next Up</h2>
+          <div className="next-card">
+            <img src={nextUp.imageUrl || `/api/image/${nextUp.id}?maxWidth=160`} alt="" />
+            <div style={{ minWidth: 0 }}>
+              <div className="name">{nextUp.name}</div>
+              <div className="sub">{nextUp.artists.join(", ")}</div>
+              <div className="sub">{nextUp.album}</div>
+            </div>
+          </div>
         </div>
-        <input
-          className="slider"
-          type="range"
-          min={0}
-          max={100}
-          step={1}
-          value={volume}
-          onChange={(e) => setDragVol(Number(e.target.value))}
-          onPointerUp={async () => {
-            if (dragVol == null) return;
-            await playerVolume(dragVol);
-            setDragVol(null);
-          }}
-          onTouchEnd={async () => {
-            if (dragVol == null) return;
-            await playerVolume(dragVol);
-            setDragVol(null);
-          }}
-        />
-      </div>
+      ) : null}
     </div>
   );
 }
