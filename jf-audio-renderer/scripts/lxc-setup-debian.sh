@@ -18,6 +18,9 @@ set -euo pipefail
 SRC="${1:?Pass the path to the jf-audio-renderer source tree (this repository directory).}"
 DEST="${DEST:-/opt/jf-audio-renderer}"
 CFG="${CFG:-/etc/jf-audio/config.yaml}"
+SRC="$(realpath "$SRC")"
+DEST="$(realpath -m "$DEST")"
+CFG="$(realpath -m "$CFG")"
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
@@ -26,6 +29,7 @@ apt-get install -y --no-install-recommends \
   python3 python3-venv python3-pip \
   mpv alsa-utils
 
+cd /
 install -d -m 0755 "$(dirname "$DEST")"
 rm -rf "$DEST"
 install -d -m 0755 "$DEST"

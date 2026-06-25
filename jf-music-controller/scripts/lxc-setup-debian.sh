@@ -13,6 +13,9 @@ set -euo pipefail
 SRC="${1:?Pass the path to the jf-music-controller source tree (this repository directory).}"
 DEST="${DEST:-/opt/jf-music-controller}"
 CFG="${CFG:-/etc/jf-music/config.yaml}"
+SRC="$(realpath "$SRC")"
+DEST="$(realpath -m "$DEST")"
+CFG="$(realpath -m "$CFG")"
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
@@ -21,6 +24,7 @@ apt-get install -y --no-install-recommends \
   python3 python3-venv python3-pip \
   nodejs npm
 
+cd /
 install -d -m 0755 "$(dirname "$DEST")"
 rm -rf "$DEST"
 install -d -m 0755 "$DEST"

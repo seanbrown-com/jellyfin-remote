@@ -15,6 +15,7 @@ set -euo pipefail
 REPO_URL="${REPO_URL:-https://github.com/seanbrown-com/jellyfin-remote.git}"
 REPO_REF="${REPO_REF:-main}"
 SRC_DIR="${SRC_DIR:-/opt/jellyfin-remote-src}"
+SRC_DIR="$(realpath -m "$SRC_DIR")"
 
 if [[ "$(id -u)" != "0" ]]; then
   echo "Run this script as root inside the LXC." >&2
@@ -22,6 +23,7 @@ if [[ "$(id -u)" != "0" ]]; then
 fi
 
 export DEBIAN_FRONTEND=noninteractive
+cd /
 
 apt-get update -y
 apt-get install -y --no-install-recommends \
