@@ -93,7 +93,7 @@ def create_app(cfg: AppConfig, paths: SecurePaths) -> FastAPI:
 
     @app.get("/api/artists")
     async def api_artists(start: int = 0, limit: int = 100):
-        return await jf.artists(start_index=start, limit=limit)
+        return await jf.artists_page(start_index=start, limit=limit)
 
     @app.get("/api/artists/{artist_id}/albums")
     async def api_artist_albums(artist_id: str):
@@ -101,7 +101,7 @@ def create_app(cfg: AppConfig, paths: SecurePaths) -> FastAPI:
 
     @app.get("/api/albums")
     async def api_albums(start: int = 0, limit: int = 48):
-        return await jf.albums(start_index=start, limit=limit)
+        return await jf.albums_page(start_index=start, limit=limit)
 
     @app.get("/api/albums/{album_id}")
     async def api_album(album_id: str):
@@ -117,7 +117,7 @@ def create_app(cfg: AppConfig, paths: SecurePaths) -> FastAPI:
 
     @app.get("/api/songs")
     async def api_songs(start: int = 0, limit: int = 100):
-        return await jf.songs(start_index=start, limit=limit)
+        return await jf.songs_page(start_index=start, limit=limit)
 
     @app.get("/api/genres")
     async def api_genres():

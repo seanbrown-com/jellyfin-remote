@@ -181,6 +181,21 @@ class JellyfinBrowser:
         )
         return [self.normalize_artist(x) for x in data.get("Items") or []]
 
+    async def artists_page(self, start_index: int = 0, limit: int = 100) -> dict[str, Any]:
+        data = await self._items(
+            IncludeItemTypes="MusicArtist",
+            Recursive="true",
+            SortBy="SortName",
+            SortOrder="Ascending",
+            StartIndex=start_index,
+            Limit=limit,
+            Fields="PrimaryImageTag",
+        )
+        return {
+            "items": [self.normalize_artist(x) for x in data.get("Items") or []],
+            "total": data.get("TotalRecordCount"),
+        }
+
     async def artist_albums(self, artist_id: str) -> list[dict[str, Any]]:
         data = await self._items(
             IncludeItemTypes="MusicAlbum",
@@ -202,6 +217,21 @@ class JellyfinBrowser:
             Fields="PrimaryImageTag,ProductionYear,ChildCount,AlbumArtist,AlbumArtists,ArtistItems",
         )
         return [self.normalize_album(x) for x in data.get("Items") or []]
+
+    async def albums_page(self, start_index: int = 0, limit: int = 100) -> dict[str, Any]:
+        data = await self._items(
+            IncludeItemTypes="MusicAlbum",
+            Recursive="true",
+            SortBy="SortName",
+            SortOrder="Ascending",
+            StartIndex=start_index,
+            Limit=limit,
+            Fields="PrimaryImageTag,ProductionYear,ChildCount,AlbumArtist,AlbumArtists,ArtistItems",
+        )
+        return {
+            "items": [self.normalize_album(x) for x in data.get("Items") or []],
+            "total": data.get("TotalRecordCount"),
+        }
 
     async def album_detail(self, album_id: str) -> dict[str, Any]:
         item = await self.get_item(album_id)
@@ -231,6 +261,21 @@ class JellyfinBrowser:
             Fields="PrimaryImageTag,Album,AlbumArtist,Artists,RunTimeTicks,AlbumId,ParentId",
         )
         return [self.normalize_track(x) for x in data.get("Items") or []]
+
+    async def songs_page(self, start_index: int = 0, limit: int = 100) -> dict[str, Any]:
+        data = await self._items(
+            IncludeItemTypes="Audio",
+            Recursive="true",
+            SortBy="SortName",
+            SortOrder="Ascending",
+            StartIndex=start_index,
+            Limit=limit,
+            Fields="PrimaryImageTag,Album,AlbumArtist,Artists,RunTimeTicks,AlbumId,ParentId",
+        )
+        return {
+            "items": [self.normalize_track(x) for x in data.get("Items") or []],
+            "total": data.get("TotalRecordCount"),
+        }
 
     async def genres(self) -> list[dict[str, Any]]:
         data = await self._items(

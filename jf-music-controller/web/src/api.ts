@@ -39,6 +39,11 @@ export type PlayerQueue = {
   index: number;
 };
 
+export type Page<T> = {
+  items: T[];
+  total?: number | null;
+};
+
 async function j<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(path, init);
   if (!r.ok) {
@@ -46,16 +51,6 @@ async function j<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(`${r.status} ${t}`);
   }
   return (await r.json()) as T;
-}
-
-async function fetchAllPages<T>(path: string, pageSize = 500): Promise<T[]> {
-  const out: T[] = [];
-  for (let start = 0; ; start += pageSize) {
-    const p = new URLSearchParams({ start: String(start), limit: String(pageSize) });
-    const page = await j<T[]>(`${path}?${p}`);
-    out.push(...page);
-    if (page.length < pageSize) return out;
-  }
 }
 
 export async function fetchLibraryViews() {
@@ -90,20 +85,23 @@ export async function fetchTrack(trackId: string) {
   return j<Track>(`/api/tracks/${trackId}`);
 }
 
-export async function fetchArtists() {
-  return fetchAllPages<Artist>("/api/artists");
+export async function fetchArtists(start = 0, limit = 100) {
+  const p = new URLSearchParams({ start: String(start), limit: String(limit) });
+  return j<Page<Artist>>(`/api/artists?${p}`);
 }
 
 export async function fetchArtistAlbums(artistId: string) {
   return j<Album[]>(`/api/artists/${artistId}/albums`);
 }
 
-export async function fetchAlbums() {
-  return fetchAllPages<Album>("/api/albums");
+export async function fetchAlbums(start = 0, limit = 100) {
+  const p = new URLSearchParams({ start: String(start), limit: String(limit) });
+  return j<Page<Album>>(`/api/albums?${p}`);
 }
 
-export async function fetchSongs() {
-  return fetchAllPages<Track>("/api/songs");
+export async function fetchSongs(start = 0, limit = 100) {
+  const p = new URLSearchParams({ start: String(start), limit: String(limit) });
+  return j<Page<Track>>(`/api/songs?${p}`);
 }
 
 export async function fetchPlaylists() {

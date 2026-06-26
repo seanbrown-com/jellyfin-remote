@@ -184,6 +184,59 @@ h1 {
   border-color: rgba(139, 92, 246, 0.45);
 }
 
+.az-index button.loading {
+  color: var(--text);
+  border-color: rgba(139, 92, 246, 0.65);
+  background: rgba(139, 92, 246, 0.22);
+}
+
+.load-more-sentinel {
+  min-height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-loader {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: var(--muted);
+}
+
+.page-loader span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.36;
+  animation: page-loader-pulse 1s ease-in-out infinite;
+}
+
+.page-loader span:nth-child(2) {
+  animation-delay: 0.14s;
+}
+
+.page-loader span:nth-child(3) {
+  animation-delay: 0.28s;
+}
+
+@keyframes page-loader-pulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.28;
+    transform: translateY(0);
+  }
+
+  40% {
+    opacity: 0.9;
+    transform: translateY(-4px);
+  }
+}
+
 .btn {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.06);
