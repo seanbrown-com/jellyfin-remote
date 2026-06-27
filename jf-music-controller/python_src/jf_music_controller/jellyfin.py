@@ -57,7 +57,7 @@ class JellyfinBrowser:
         return {
             "id": iid,
             "name": item.get("Name") or "Unknown",
-            "imageUrl": f"/api/image/{iid}?maxWidth=480" if tag else None,
+            "imageUrl": f"/api/image/{iid}?maxWidth=240" if tag else None,
         }
 
     def normalize_album(self, item: dict[str, Any]) -> dict[str, Any]:
@@ -76,7 +76,7 @@ class JellyfinBrowser:
             "artist": artist,
             "artistId": artist_id,
             "year": item.get("ProductionYear"),
-            "imageUrl": f"/api/image/{iid}?maxWidth=480" if tag else None,
+            "imageUrl": f"/api/image/{iid}?maxWidth=240" if tag else None,
             "trackCount": item.get("ChildCount"),
         }
 
@@ -99,7 +99,7 @@ class JellyfinBrowser:
             "indexNumber": item.get("IndexNumber"),
             "discNumber": item.get("ParentIndexNumber"),
             "durationTicks": item.get("RunTimeTicks"),
-            "imageUrl": f"/api/image/{iid}?maxWidth=320" if tag else None,
+            "imageUrl": f"/api/image/{iid}?maxWidth=160" if tag else None,
         }
 
     async def recently_added_albums(self, limit: int = 24) -> list[dict[str, Any]]:

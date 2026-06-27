@@ -11,13 +11,16 @@ export function NowPlaying() {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [nextUp, setNextUp] = useState<Track | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [artLoading, setArtLoading] = useState(false);
+  const [artFailed, setArtFailed] = useState(false);
 
   const player = live;
 
   const duration = player?.duration ?? 0;
   const position = dragPos ?? player?.position ?? 0;
 
-  const img = currentTrack?.imageUrl || (player?.itemId ? `/api/image/${player.itemId}?maxWidth=900` : undefined);
+  const artItemId = currentTrack?.id || player?.itemId;
+  const img = artItemId ? `/api/image/${artItemId}?maxWidth=900` : undefined;
 
   const title = currentTrack?.name || player?.title || "Nothing playing";
   const artists = currentTrack?.artists.join(", ") || (player?.artists && player.artists.join(", ")) || "";
@@ -32,11 +35,9 @@ export function NowPlaying() {
         return;
       }
       try {
-        const queue = await fetchPlayerQueueDetails();
-        const index = queue.itemIds.indexOf(player.itemId);
-        const nextIndex = index >= 0 ? index + 1 : queue.index + 1;
-        const current = queue.tracks[index >= 0 ? index : queue.index] || null;
-        const track = queue.tracks[nextIndex];
+        const queue = await fetchPlayerQueueDetails(player.itemId);
+        const current = queue.current || null;
+        const track = queue.next || null;
         if (!cancelled) setCurrentTrack(current);
         if (!track) {
           setNextUp(null);
@@ -54,6 +55,16 @@ export function NowPlaying() {
       window.clearInterval(timer);
     };
   }, [player?.itemId]);
+
+  useEffect(() => {
+    setCurrentTrack(null);
+    setNextUp(null);
+  }, [player?.itemId]);
+
+  useEffect(() => {
+    setArtFailed(false);
+    setArtLoading(Boolean(img));
+  }, [img]);
 
   const toggle = async () => {
     if (!player?.itemId) return;
@@ -84,7 +95,22 @@ export function NowPlaying() {
 
   return (
     <div className="np">
-      {img ? <img className="art" src={img} alt="" /> : <div className="art" />}
+      <div className="art-shell">
+        {img && !artFailed ? (
+          <img
+            key={img}
+            className={`art ${artLoading ? "loading" : ""}`}
+            src={img}
+            alt=""
+            onLoad={() => setArtLoading(false)}
+            onError={() => {
+              setArtLoading(false);
+              setArtFailed(true);
+            }}
+          />
+        ) : null}
+        {!img || artLoading || artFailed ? <div className="art-placeholder">{artFailed ? null : <div className="page-loader"><span /><span /><span /></div>}</div> : null}
+      </div>
       <div className="title">{title}</div>
       <div className="sub">{artists}</div>
       {album ? <div className="sub album-title">{album}</div> : null}

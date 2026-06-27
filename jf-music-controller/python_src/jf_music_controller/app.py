@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import random
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -13,6 +15,13 @@ from jf_music_controller.admin_portal import register_admin
 from jf_music_controller.config import AppConfig
 from jf_music_controller.jellyfin import JellyfinBrowser
 from jf_music_controller.secure_store import SecurePaths
+
+_SAFE_CACHE_ID = re.compile(r"[^A-Za-z0-9_.-]+")
+
+
+def _image_cache_key(item_id: str, max_width: int) -> str:
+    safe_id = _SAFE_CACHE_ID.sub("_", item_id).strip("._") or "item"
+    return f"{safe_id}-{max_width}.webp"
 
 
 def create_app(cfg: AppConfig, paths: SecurePaths) -> FastAPI:
@@ -33,6 +42,9 @@ def create_app(cfg: AppConfig, paths: SecurePaths) -> FastAPI:
     async def lifespan(app: FastAPI):
         app.state.cfg = cfg
         app.state.manual_queue = []
+        app.state.image_cache_dir = paths.data_dir / "image-cache"
+        app.state.image_locks = {}
+        app.state.image_cache_dir.mkdir(parents=True, exist_ok=True)
         if has and jf is not None and render is not None:
             app.state.jf = jf
             app.state.render = render
@@ -145,8 +157,24 @@ def create_app(cfg: AppConfig, paths: SecurePaths) -> FastAPI:
 
     @app.get("/api/image/{item_id}")
     async def api_image(item_id: str, maxWidth: int = 480):
-        data, ct = await jf.fetch_primary_image(item_id, max_width=maxWidth)
-        return Response(content=data, media_type=ct)
+        width = max(64, min(int(maxWidth or 480), 1200))
+        cache_dir: Path = app.state.image_cache_dir
+        cache_path = cache_dir / _image_cache_key(item_id, width)
+        headers = {"Cache-Control": "public, max-age=604800, immutable"}
+        if cache_path.is_file():
+            return FileResponse(cache_path, media_type="image/webp", headers=headers)
+
+        locks: dict[str, asyncio.Lock] = app.state.image_locks
+        key = f"{item_id}:{width}"
+        lock = locks.setdefault(key, asyncio.Lock())
+        async with lock:
+            if cache_path.is_file():
+                return FileResponse(cache_path, media_type="image/webp", headers=headers)
+            data, ct = await jf.fetch_primary_image(item_id, max_width=width)
+            tmp = cache_path.with_suffix(".tmp")
+            tmp.write_bytes(data)
+            tmp.replace(cache_path)
+            return Response(content=data, media_type=ct, headers=headers)
 
     @app.get("/api/player/state")
     async def api_player_state():
@@ -159,19 +187,34 @@ def create_app(cfg: AppConfig, paths: SecurePaths) -> FastAPI:
         return Response(r.content, status_code=r.status_code, media_type="application/json")
 
     @app.get("/api/player/queue/details")
-    async def api_player_queue_details():
+    async def api_player_queue_details(currentId: str | None = None):
         r = await render.get("/player/queue", headers=rh)
         if r.status_code >= 400:
             return Response(r.content, status_code=r.status_code, media_type="application/json")
         current = r.json()
         ids = [str(x) for x in current.get("itemIds") or [] if x]
-        tracks = []
-        for item_id in ids:
+        queue_index = int(current.get("index") or 0)
+        current_index = queue_index
+        if currentId and currentId in ids:
+            current_index = ids.index(currentId)
+
+        async def load_track(item_id: str) -> dict[str, object]:
             try:
-                tracks.append(await jf.track_detail(item_id))
+                return await jf.track_detail(item_id)
             except Exception:  # noqa: BLE001
-                tracks.append({"id": item_id, "name": "Unknown track", "artists": [], "album": "", "albumId": "", "imageUrl": None})
-        return {"itemIds": ids, "index": int(current.get("index") or 0), "tracks": tracks}
+                return {"id": item_id, "name": "Unknown track", "artists": [], "album": "", "albumId": "", "imageUrl": None}
+
+        current_track = await load_track(ids[current_index]) if 0 <= current_index < len(ids) else None
+        next_index = current_index + 1
+        next_track = await load_track(ids[next_index]) if next_index < len(ids) else None
+        return {
+            "itemIds": ids,
+            "index": queue_index,
+            "currentIndex": current_index,
+            "current": current_track,
+            "next": next_track,
+            "tracks": [x for x in (current_track, next_track) if x],
+        }
 
     @app.get("/api/player/events")
     async def api_player_events():

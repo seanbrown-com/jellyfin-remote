@@ -40,7 +40,10 @@ export type PlayerQueue = {
 };
 
 export type PlayerQueueDetails = PlayerQueue & {
-  tracks: Track[];
+  currentIndex: number;
+  current?: Track | null;
+  next?: Track | null;
+  tracks?: Track[];
 };
 
 export type Page<T> = {
@@ -180,8 +183,11 @@ export async function fetchPlayerQueue() {
   return j<PlayerQueue>("/api/player/queue");
 }
 
-export async function fetchPlayerQueueDetails() {
-  return j<PlayerQueueDetails>("/api/player/queue/details");
+export async function fetchPlayerQueueDetails(currentId?: string | null) {
+  const p = new URLSearchParams();
+  if (currentId) p.set("currentId", currentId);
+  const query = p.toString();
+  return j<PlayerQueueDetails>(`/api/player/queue/details${query ? `?${query}` : ""}`);
 }
 
 export async function playerShuffle(enabled?: boolean) {

@@ -68,6 +68,22 @@ function estimatedStartForKey(key: string, total: number | null) {
   return Math.max(0, Math.floor(raw / PAGE_SIZE) * PAGE_SIZE);
 }
 
+function keyRank(name: string) {
+  return INDEX_KEYS.indexOf(indexKey(name));
+}
+
+function pageBounds(items: Indexed[]) {
+  if (!items.length) return null;
+  return {
+    first: keyRank(items[0]!.name),
+    last: keyRank(items[items.length - 1]!.name),
+  };
+}
+
+function matchingItems<T extends Indexed>(items: T[], key: string) {
+  return items.filter((item) => indexKey(item.name) === key);
+}
+
 function PageLoader() {
   return (
     <div className="page-loader" role="status" aria-live="polite" aria-label="Loading more results">
@@ -107,6 +123,7 @@ export function Library() {
   const playlistId = sp.get("playlist");
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const loadingRef = useRef<Record<PagedTab, boolean>>({ artists: false, albums: false, songs: false });
+  const nextStartRef = useRef<Record<PagedTab, number>>({ artists: 0, albums: 0, songs: 0 });
 
   const [artists, setArtists] = useState<Artist[] | null>(null);
   const [albums, setAlbums] = useState<Album[] | null>(null);
@@ -118,16 +135,20 @@ export function Library() {
   const [hasMore, setHasMore] = useState<Record<PagedTab, boolean>>({ artists: true, albums: true, songs: true });
   const [totalCount, setTotalCount] = useState<Record<PagedTab, number | null>>({ artists: null, albums: null, songs: null });
   const [jumpingKey, setJumpingKey] = useState<string | null>(null);
+  const [letterItems, setLetterItems] = useState<Record<PagedTab, PagedItem[] | null>>({ artists: null, albums: null, songs: null });
+  const [loadedLetter, setLoadedLetter] = useState<Record<PagedTab, string | null>>({ artists: null, albums: null, songs: null });
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const rawLetterKey = sp.get("letter");
+  const letterKey = isPagedTab(tab) && rawLetterKey && INDEX_KEYS.includes(rawLetterKey) ? rawLetterKey : null;
 
   const loadPage = useCallback(
     async (target: PagedTab, reset = false) => {
       if (loadingRef.current[target]) return;
       if (!reset && !hasMore[target]) return;
 
-      const current = target === "artists" ? artists : target === "albums" ? albums : songs;
-      const start = reset ? 0 : current?.length || 0;
+      if (reset) nextStartRef.current[target] = 0;
+      const start = nextStartRef.current[target];
 
       setErr(null);
       loadingRef.current[target] = true;
@@ -136,18 +157,21 @@ export function Library() {
         if (target === "artists") {
           const page = await fetchArtists(start, PAGE_SIZE);
           const added = countNew(artists || [], page.items);
+          nextStartRef.current.artists = start + page.items.length;
           setArtists((prev) => (reset || !prev ? page.items : mergeUnique(prev, page.items)));
           setTotalCount((prev) => ({ ...prev, artists: page.total ?? null }));
           setHasMore((prev) => ({ ...prev, artists: page.items.length === PAGE_SIZE && (reset || added > 0) }));
         } else if (target === "albums") {
           const page = await fetchAlbums(start, PAGE_SIZE);
           const added = countNew(albums || [], page.items);
+          nextStartRef.current.albums = start + page.items.length;
           setAlbums((prev) => (reset || !prev ? page.items : mergeUnique(prev, page.items)));
           setTotalCount((prev) => ({ ...prev, albums: page.total ?? null }));
           setHasMore((prev) => ({ ...prev, albums: page.items.length === PAGE_SIZE && (reset || added > 0) }));
         } else {
           const page = await fetchSongs(start, PAGE_SIZE);
           const added = countNew(songs || [], page.items);
+          nextStartRef.current.songs = start + page.items.length;
           setSongs((prev) => (reset || !prev ? page.items : mergeUnique(prev, page.items)));
           setTotalCount((prev) => ({ ...prev, songs: page.total ?? null }));
           setHasMore((prev) => ({ ...prev, songs: page.items.length === PAGE_SIZE && (reset || added > 0) }));
@@ -176,6 +200,7 @@ export function Library() {
 
   useEffect(() => {
     if (!isPagedTab(tab)) return;
+    if (letterKey) return;
     const node = loadMoreRef.current;
     if (!node || !hasMore[tab]) return;
 
@@ -187,7 +212,7 @@ export function Library() {
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [hasMore, loadPage, tab]);
+  }, [hasMore, letterKey, loadPage, tab]);
 
   useEffect(() => {
     if (tab !== "playlists" || !playlistId) {
@@ -199,19 +224,29 @@ export function Library() {
       .catch((e: Error) => setErr(e.message));
   }, [tab, playlistId]);
 
-  const jumpToKey = useCallback(
-    async (target: PagedTab, key: string, prefix: string) => {
-      if (loadingRef.current[target]) return;
+  const showLetter = (target: PagedTab, key: string) => {
+    setLetterItems((prev) => ({ ...prev, [target]: null }));
+    setLoadedLetter((prev) => ({ ...prev, [target]: null }));
+    setSp((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("tab", target);
+      next.set("letter", key);
+      next.delete("playlist");
+      return next;
+    });
+  };
 
-      const commitItems = (items: PagedItem[]) => {
-        if (target === "artists") {
-          setArtists(items as Artist[]);
-        } else if (target === "albums") {
-          setAlbums(items as Album[]);
-        } else {
-          setSongs(items as Track[]);
-        }
-      };
+  const clearLetter = () => {
+    setSp((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("letter");
+      return next;
+    });
+  };
+
+  const loadLetterPage = useCallback(
+    async (target: PagedTab, key: string) => {
+      if (loadingRef.current[target]) return;
 
       const fetchPage = async (start: number) => {
         if (target === "artists") return fetchArtists(start, PAGE_SIZE);
@@ -219,50 +254,80 @@ export function Library() {
         return fetchSongs(start, PAGE_SIZE);
       };
 
-      let items: PagedItem[] = target === "artists" ? [...(artists || [])] : target === "albums" ? [...(albums || [])] : [...(songs || [])];
-      let found = findJumpTarget(items, key);
-      if (found) {
-        document.getElementById(itemId(prefix, found.id))?.scrollIntoView({ behavior: "smooth", block: "start" });
-        return;
-      }
-
+      const targetRank = INDEX_KEYS.indexOf(key);
       setErr(null);
       setJumpingKey(key);
       loadingRef.current[target] = true;
       setLoadingPage((prev) => ({ ...prev, [target]: true }));
+      setLetterItems((prev) => ({ ...prev, [target]: null }));
+      setLoadedLetter((prev) => ({ ...prev, [target]: null }));
 
       try {
-        const estimatedStart = estimatedStartForKey(key, totalCount[target]);
-        let keepGoing = true;
-
-        while (items.length < estimatedStart && keepGoing) {
-          const page = await fetchPage(items.length);
-          const pageItems = page.items as PagedItem[];
-          const added = countNew(items, pageItems);
-          items = mergeUnique(items, pageItems);
-          commitItems(items);
-          setTotalCount((prev) => ({ ...prev, [target]: page.total ?? null }));
-          keepGoing = pageItems.length === PAGE_SIZE && added > 0;
+        let total = totalCount[target];
+        if (total == null) {
+          const first = await fetchPage(0);
+          total = first.total ?? first.items.length;
+          setTotalCount((prev) => ({ ...prev, [target]: total }));
         }
 
-        found = findJumpTarget(items, key);
-        while (!found && keepGoing) {
-          const page = await fetchPage(items.length);
-          const pageItems = page.items as PagedItem[];
-          const added = countNew(items, pageItems);
-          items = mergeUnique(items, pageItems);
-          commitItems(items);
-          setTotalCount((prev) => ({ ...prev, [target]: page.total ?? null }));
-          keepGoing = pageItems.length === PAGE_SIZE && added > 0;
-          found = findJumpTarget(items, key);
+        const maxStart = Math.max(0, Math.floor(Math.max(total - 1, 0) / PAGE_SIZE) * PAGE_SIZE);
+        const pages = new Map<number, PagedItem[]>();
+        const getPage = async (start: number) => {
+          const bounded = Math.max(0, Math.min(start, maxStart));
+          if (pages.has(bounded)) return pages.get(bounded)!;
+          const page = await fetchPage(bounded);
+          const items = page.items as PagedItem[];
+          pages.set(bounded, items);
+          if (page.total != null) setTotalCount((prev) => ({ ...prev, [target]: page.total ?? null }));
+          return items;
+        };
+
+        let start = Math.min(estimatedStartForKey(key, total), maxStart);
+        let pageItems = await getPage(start);
+        let bounds = pageBounds(pageItems);
+        let guard = Math.ceil((total || PAGE_SIZE) / PAGE_SIZE) + 2;
+
+        while (bounds && guard > 0) {
+          guard -= 1;
+          if (bounds.first > targetRank && start > 0) {
+            start = Math.max(0, start - PAGE_SIZE);
+          } else if (bounds.last < targetRank && start < maxStart) {
+            start = Math.min(maxStart, start + PAGE_SIZE);
+          } else {
+            break;
+          }
+          pageItems = await getPage(start);
+          bounds = pageBounds(pageItems);
         }
 
-        setHasMore((prev) => ({ ...prev, [target]: keepGoing }));
-        if (found) {
-          window.setTimeout(() => {
-            document.getElementById(itemId(prefix, found!.id))?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }, 0);
+        let minStart = start;
+        let maxSeenStart = start;
+
+        while (minStart > 0) {
+          const prevStart = Math.max(0, minStart - PAGE_SIZE);
+          const prev = await getPage(prevStart);
+          const prevBounds = pageBounds(prev);
+          if (!prevBounds || prevBounds.last < targetRank) break;
+          minStart = prevStart;
+          if (prevBounds.first < targetRank && !matchingItems(prev, key).length) break;
         }
+
+        while (maxSeenStart < maxStart) {
+          const nextStart = Math.min(maxStart, maxSeenStart + PAGE_SIZE);
+          const next = await getPage(nextStart);
+          const nextBounds = pageBounds(next);
+          if (!nextBounds || nextBounds.first > targetRank) break;
+          maxSeenStart = nextStart;
+          if (nextBounds.last > targetRank && !matchingItems(next, key).length) break;
+        }
+
+        let matches: PagedItem[] = [];
+        for (let pageStart = minStart; pageStart <= maxSeenStart; pageStart += PAGE_SIZE) {
+          matches = mergeUnique(matches, matchingItems(await getPage(pageStart), key));
+        }
+        setLetterItems((prev) => ({ ...prev, [target]: matches }));
+        setLoadedLetter((prev) => ({ ...prev, [target]: key }));
+        window.scrollTo({ top: 0, behavior: "smooth" });
       } catch (e) {
         setErr(e instanceof Error ? e.message : String(e));
       } finally {
@@ -271,14 +336,22 @@ export function Library() {
         setJumpingKey(null);
       }
     },
-    [albums, artists, songs, totalCount],
+    [totalCount],
   );
+
+  useEffect(() => {
+    if (!isPagedTab(tab) || !letterKey) return;
+    if (!INDEX_KEYS.includes(letterKey)) return;
+    if (loadedLetter[tab] === letterKey && letterItems[tab] !== null) return;
+    void loadLetterPage(tab, letterKey);
+  }, [letterItems, letterKey, loadLetterPage, loadedLetter, tab]);
 
   const setTab = (t: Tab) => {
     setSp((prev) => {
       const next = new URLSearchParams(prev);
       next.set("tab", t);
       next.delete("playlist");
+      next.delete("letter");
       return next;
     });
   };
@@ -323,6 +396,10 @@ export function Library() {
             ? "Loading playlist..."
             : "Loading playlists...";
 
+  const visibleAlbums = letterKey ? (letterItems.albums as Album[] | null) : albums;
+  const visibleArtists = letterKey ? (letterItems.artists as Artist[] | null) : artists;
+  const visibleSongs = letterKey ? (letterItems.songs as Track[] | null) : songs;
+
   return (
     <div>
       <h1>Library</h1>
@@ -331,19 +408,27 @@ export function Library() {
       </div>
       {err ? <div className="muted">{err}</div> : null}
       {toast ? <div className="toast">{toast}</div> : null}
-      {!err && tab === "albums" && albums === null ? <PageLoader /> : null}
-      {!err && tab === "artists" && artists === null ? <PageLoader /> : null}
-      {!err && tab === "songs" && songs === null ? <PageLoader /> : null}
+      {!err && tab === "albums" && visibleAlbums === null ? <PageLoader /> : null}
+      {!err && tab === "artists" && visibleArtists === null ? <PageLoader /> : null}
+      {!err && tab === "songs" && visibleSongs === null ? <PageLoader /> : null}
       {!err && tab === "playlists" && !playlistId && playlists === null ? <div className="muted">{loadingText}</div> : null}
       {!err && tab === "playlists" && playlistId && plTracks === null ? <div className="muted">{loadingText}</div> : null}
 
-      {tab === "albums" && albums ? (
+      {tab === "albums" && visibleAlbums ? (
         <>
-          <AlphabetIndex prefix="library-album" items={albums.map((a) => ({ id: a.id, name: a.name }))} jumpingKey={jumpingKey} onJump={(key) => void jumpToKey("albums", key, "library-album")} />
-          {albums.length ? (
+          <AlphabetIndex prefix="library-album" items={visibleAlbums.map((a) => ({ id: a.id, name: a.name }))} jumpingKey={jumpingKey} onJump={(key) => showLetter("albums", key)} />
+          {letterKey ? (
+            <div className="letter-view-bar">
+              <span>{letterKey} albums</span>
+              <button className="btn ghost" type="button" onClick={clearLetter}>
+                All albums
+              </button>
+            </div>
+          ) : null}
+          {visibleAlbums.length ? (
             <>
               <div className="grid">
-                {albums.map((a) => (
+                {visibleAlbums.map((a) => (
                   <div id={itemId("library-album", a.id)} className="card scroll-target" key={a.id}>
                     <Link to={`/album/${a.id}`}>
                       <img className="cover" src={a.imageUrl || "/cover-placeholder.svg"} alt="" loading="lazy" onError={imageFallback("/cover-placeholder.svg")} />
@@ -383,25 +468,33 @@ export function Library() {
                   </div>
                 ))}
               </div>
-              {hasMore.albums ? (
+              {!letterKey && hasMore.albums ? (
                 <div ref={loadMoreRef} className="load-more-sentinel">
                   {loadingPage.albums ? <PageLoader /> : null}
                 </div>
               ) : null}
             </>
           ) : (
-            <div className="muted">No albums found.</div>
+            <div className="muted">{letterKey ? `No albums found for ${letterKey}.` : "No albums found."}</div>
           )}
         </>
       ) : null}
 
-      {tab === "artists" && artists ? (
+      {tab === "artists" && visibleArtists ? (
         <>
-          <AlphabetIndex prefix="library-artist" items={artists.map((a) => ({ id: a.id, name: a.name }))} jumpingKey={jumpingKey} onJump={(key) => void jumpToKey("artists", key, "library-artist")} />
-          {artists.length ? (
+          <AlphabetIndex prefix="library-artist" items={visibleArtists.map((a) => ({ id: a.id, name: a.name }))} jumpingKey={jumpingKey} onJump={(key) => showLetter("artists", key)} />
+          {letterKey ? (
+            <div className="letter-view-bar">
+              <span>{letterKey} artists</span>
+              <button className="btn ghost" type="button" onClick={clearLetter}>
+                All artists
+              </button>
+            </div>
+          ) : null}
+          {visibleArtists.length ? (
             <>
               <div className="grid">
-                {artists.map((a) => (
+                {visibleArtists.map((a) => (
                   <div id={itemId("library-artist", a.id)} className="card scroll-target" key={a.id}>
                     <Link to={`/artist/${a.id}`}>
                       <img className="cover" src={a.imageUrl || "/artist-placeholder.svg"} alt="" loading="lazy" onError={imageFallback("/artist-placeholder.svg")} />
@@ -441,25 +534,33 @@ export function Library() {
                   </div>
                 ))}
               </div>
-              {hasMore.artists ? (
+              {!letterKey && hasMore.artists ? (
                 <div ref={loadMoreRef} className="load-more-sentinel">
                   {loadingPage.artists ? <PageLoader /> : null}
                 </div>
               ) : null}
             </>
           ) : (
-            <div className="muted">No artists found.</div>
+            <div className="muted">{letterKey ? `No artists found for ${letterKey}.` : "No artists found."}</div>
           )}
         </>
       ) : null}
 
-      {tab === "songs" && songs ? (
+      {tab === "songs" && visibleSongs ? (
         <>
-          <AlphabetIndex prefix="library-song" items={songs.map((t) => ({ id: t.id, name: t.name }))} jumpingKey={jumpingKey} onJump={(key) => void jumpToKey("songs", key, "library-song")} />
-          {songs.length ? (
+          <AlphabetIndex prefix="library-song" items={visibleSongs.map((t) => ({ id: t.id, name: t.name }))} jumpingKey={jumpingKey} onJump={(key) => showLetter("songs", key)} />
+          {letterKey ? (
+            <div className="letter-view-bar">
+              <span>{letterKey} songs</span>
+              <button className="btn ghost" type="button" onClick={clearLetter}>
+                All songs
+              </button>
+            </div>
+          ) : null}
+          {visibleSongs.length ? (
             <>
               <div className="tracklist">
-                {songs.map((t) => (
+                {visibleSongs.map((t) => (
                   <div id={itemId("library-song", t.id)} key={t.id} className="track scroll-target" style={{ gridTemplateColumns: "1fr auto auto" }}>
                     <div>
                       <div className="name">{t.name}</div>
@@ -483,14 +584,14 @@ export function Library() {
                   </div>
                 ))}
               </div>
-              {hasMore.songs ? (
+              {!letterKey && hasMore.songs ? (
                 <div ref={loadMoreRef} className="load-more-sentinel">
                   {loadingPage.songs ? <PageLoader /> : null}
                 </div>
               ) : null}
             </>
           ) : (
-            <div className="muted">No songs found.</div>
+            <div className="muted">{letterKey ? `No songs found for ${letterKey}.` : "No songs found."}</div>
           )}
         </>
       ) : null}
