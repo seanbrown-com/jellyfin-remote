@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { Album, Artist, Track } from "../api";
-import { playerEnqueue, playerPlay, searchMusic } from "../api";
+import { fetchAlbumTracks, fetchArtistTracks, playerEnqueue, playerPlay, searchMusic } from "../api";
 
 export function Search() {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [res, setRes] = useState<Awaited<ReturnType<typeof searchMusic>> | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const debounced = useMemo(() => {
     let t: number | undefined;
@@ -32,11 +34,35 @@ export function Search() {
     debounced(q);
   }, [q, debounced]);
 
+  const playQueue = async (ids: string[], label: string) => {
+    if (!ids.length) return;
+    setBusy(label);
+    try {
+      await playerPlay({ itemId: ids[0]!, mode: "replaceQueue", queue: ids });
+      navigate("/now");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const enqueue = async (ids: string[], label: string) => {
+    if (!ids.length) return;
+    setBusy(label);
+    try {
+      await playerEnqueue({ queue: ids });
+      setToast(ids.length === 1 ? "Track queued" : `${ids.length} tracks queued`);
+      window.setTimeout(() => setToast(null), 1800);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   return (
     <div>
       <h1>Search</h1>
       <input className="searchbar" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Artists, albums, tracks…" />
       {err ? <div className="muted" style={{ marginTop: 10 }}>{err}</div> : null}
+      {toast ? <div className="toast">{toast}</div> : null}
       {!res ? (
         <div className="muted" style={{ marginTop: 12 }}>
           Type to search your library.
@@ -47,19 +73,66 @@ export function Search() {
             <h2>Artists</h2>
             <div className="tracklist">
               {res.artists.map((a: Artist) => (
-                <Link key={a.id} to={`/artist/${a.id}`} style={{ display: "block" }}>
-                  <div className="track" style={{ gridTemplateColumns: "1fr auto" }}>
+                <div key={a.id} className="track" style={{ gridTemplateColumns: "1fr auto auto auto" }}>
+                  <Link to={`/artist/${a.id}`} style={{ minWidth: 0 }}>
                     <div className="name">{a.name}</div>
-                    <span className="muted">→</span>
-                  </div>
-                </Link>
+                    <div className="sub">Artist</div>
+                  </Link>
+                  <button
+                    className="btn"
+                    type="button"
+                    disabled={busy === `play-artist-${a.id}`}
+                    onClick={() => {
+                      setBusy(`play-artist-${a.id}`);
+                      void fetchArtistTracks(a.id)
+                        .then((tracks) => playQueue(tracks.map((t) => t.id), `play-artist-${a.id}`))
+                        .finally(() => setBusy(null));
+                    }}
+                  >
+                    {busy === `play-artist-${a.id}` ? "Playing..." : "Play"}
+                  </button>
+                  <button
+                    className="btn ghost"
+                    type="button"
+                    disabled={busy === `queue-artist-${a.id}`}
+                    onClick={() => {
+                      setBusy(`queue-artist-${a.id}`);
+                      void fetchArtistTracks(a.id)
+                        .then((tracks) => enqueue(tracks.map((t) => t.id), `queue-artist-${a.id}`))
+                        .finally(() => setBusy(null));
+                    }}
+                  >
+                    {busy === `queue-artist-${a.id}` ? "Queueing..." : "Queue"}
+                  </button>
+                  <Link className="btn ghost" to={`/artist/${a.id}`}>Open</Link>
+                </div>
               ))}
               {!res.artists.length ? <div className="muted" style={{ padding: 12 }}>No artists</div> : null}
             </div>
           </div>
           <div className="section">
             <h2>Albums</h2>
-            <div className="grid">{res.albums.map((a: Album) => <AlbumCard key={a.id} a={a} />)}</div>
+            <div className="grid">
+              {res.albums.map((a: Album) => (
+                <AlbumCard
+                  key={a.id}
+                  a={a}
+                  busy={busy}
+                  onPlay={() => {
+                    setBusy(`play-album-${a.id}`);
+                    void fetchAlbumTracks(a.id)
+                      .then((tracks) => playQueue(tracks.map((t) => t.id), `play-album-${a.id}`))
+                      .finally(() => setBusy(null));
+                  }}
+                  onQueue={() => {
+                    setBusy(`queue-album-${a.id}`);
+                    void fetchAlbumTracks(a.id)
+                      .then((tracks) => enqueue(tracks.map((t) => t.id), `queue-album-${a.id}`))
+                      .finally(() => setBusy(null));
+                  }}
+                />
+              ))}
+            </div>
           </div>
           <div className="section">
             <h2>Tracks</h2>
@@ -76,13 +149,14 @@ export function Search() {
                     className="btn"
                     type="button"
                     onClick={() => {
-                      void playerPlay({ itemId: t.id, mode: "replaceQueue", queue: [t.id], defaultQueue: true }).then(() => navigate("/now"));
+                      void playQueue([t.id], `play-track-${t.id}`);
                     }}
+                    disabled={busy === `play-track-${t.id}`}
                   >
-                    Play
+                    {busy === `play-track-${t.id}` ? "Playing..." : "Play"}
                   </button>
-                  <button className="btn ghost" type="button" onClick={() => void playerEnqueue({ itemId: t.id })}>
-                    Queue
+                  <button className="btn ghost" type="button" disabled={busy === `queue-track-${t.id}`} onClick={() => void enqueue([t.id], `queue-track-${t.id}`)}>
+                    {busy === `queue-track-${t.id}` ? "Queueing..." : "Queue"}
                   </button>
                 </div>
               ))}
@@ -95,15 +169,25 @@ export function Search() {
   );
 }
 
-function AlbumCard({ a }: { a: Album }) {
+function AlbumCard({ a, busy, onPlay, onQueue }: { a: Album; busy: string | null; onPlay: () => void; onQueue: () => void }) {
   const img = a.imageUrl || "/cover-placeholder.svg";
   return (
-    <Link className="card" to={`/album/${a.id}`}>
-      <img className="cover" src={img} alt="" loading="lazy" />
-      <div className="meta">
-        <div className="title">{a.name}</div>
-        <div className="sub">{a.artist}</div>
+    <div className="card">
+      <Link to={`/album/${a.id}`}>
+        <img className="cover" src={img} alt="" loading="lazy" />
+        <div className="meta">
+          <div className="title">{a.name}</div>
+          <div className="sub">{a.artist}</div>
+        </div>
+      </Link>
+      <div className="card-actions">
+        <button className="btn" type="button" disabled={busy === `play-album-${a.id}`} onClick={onPlay}>
+          {busy === `play-album-${a.id}` ? "Playing..." : "Play"}
+        </button>
+        <button className="btn ghost" type="button" disabled={busy === `queue-album-${a.id}`} onClick={onQueue}>
+          {busy === `queue-album-${a.id}` ? "Queueing..." : "Queue"}
+        </button>
       </div>
-    </Link>
+    </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type { Album, Artist, Track } from "../api";
-import { fetchAlbums, fetchArtists, fetchPlaylistTracks, fetchPlaylists, fetchSongs, playerEnqueue, playerPlay } from "../api";
+import { fetchAlbumTracks, fetchAlbums, fetchArtistTracks, fetchArtists, fetchPlaylistTracks, fetchPlaylists, fetchSongs, playerEnqueue, playerPlay } from "../api";
 
 type Tab = "artists" | "albums" | "songs" | "playlists";
 type PagedTab = Exclude<Tab, "playlists">;
@@ -118,6 +118,8 @@ export function Library() {
   const [hasMore, setHasMore] = useState<Record<PagedTab, boolean>>({ artists: true, albums: true, songs: true });
   const [totalCount, setTotalCount] = useState<Record<PagedTab, number | null>>({ artists: null, albums: null, songs: null });
   const [jumpingKey, setJumpingKey] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const loadPage = useCallback(
     async (target: PagedTab, reset = false) => {
@@ -281,6 +283,29 @@ export function Library() {
     });
   };
 
+  const playQueue = async (ids: string[], label: string) => {
+    if (!ids.length) return;
+    setBusy(label);
+    try {
+      await playerPlay({ itemId: ids[0]!, mode: "replaceQueue", queue: ids });
+      navigate("/now");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const enqueue = async (ids: string[], label: string) => {
+    if (!ids.length) return;
+    setBusy(label);
+    try {
+      await playerEnqueue({ queue: ids });
+      setToast(ids.length === 1 ? "Track queued" : `${ids.length} tracks queued`);
+      window.setTimeout(() => setToast(null), 1800);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const chips = (["albums", "artists", "songs", "playlists"] as const).map((t) => (
     <button key={t} className={`btn ${tab === t ? "primary" : ""}`} type="button" onClick={() => setTab(t)}>
       {t[0]!.toUpperCase() + t.slice(1)}
@@ -305,6 +330,7 @@ export function Library() {
         {chips}
       </div>
       {err ? <div className="muted">{err}</div> : null}
+      {toast ? <div className="toast">{toast}</div> : null}
       {!err && tab === "albums" && albums === null ? <PageLoader /> : null}
       {!err && tab === "artists" && artists === null ? <PageLoader /> : null}
       {!err && tab === "songs" && songs === null ? <PageLoader /> : null}
@@ -318,13 +344,43 @@ export function Library() {
             <>
               <div className="grid">
                 {albums.map((a) => (
-                  <Link id={itemId("library-album", a.id)} className="card scroll-target" key={a.id} to={`/album/${a.id}`}>
-                    <img className="cover" src={a.imageUrl || "/cover-placeholder.svg"} alt="" loading="lazy" onError={imageFallback("/cover-placeholder.svg")} />
-                    <div className="meta">
-                      <div className="title">{a.name}</div>
-                      <div className="sub">{a.artist}</div>
+                  <div id={itemId("library-album", a.id)} className="card scroll-target" key={a.id}>
+                    <Link to={`/album/${a.id}`}>
+                      <img className="cover" src={a.imageUrl || "/cover-placeholder.svg"} alt="" loading="lazy" onError={imageFallback("/cover-placeholder.svg")} />
+                      <div className="meta">
+                        <div className="title">{a.name}</div>
+                        <div className="sub">{a.artist}</div>
+                      </div>
+                    </Link>
+                    <div className="card-actions">
+                      <button
+                        className="btn"
+                        type="button"
+                        disabled={busy === `play-album-${a.id}`}
+                        onClick={() => {
+                          setBusy(`play-album-${a.id}`);
+                          void fetchAlbumTracks(a.id)
+                            .then((tracks) => playQueue(tracks.map((t) => t.id), `play-album-${a.id}`))
+                            .finally(() => setBusy(null));
+                        }}
+                      >
+                        {busy === `play-album-${a.id}` ? "Playing..." : "Play"}
+                      </button>
+                      <button
+                        className="btn ghost"
+                        type="button"
+                        disabled={busy === `queue-album-${a.id}`}
+                        onClick={() => {
+                          setBusy(`queue-album-${a.id}`);
+                          void fetchAlbumTracks(a.id)
+                            .then((tracks) => enqueue(tracks.map((t) => t.id), `queue-album-${a.id}`))
+                            .finally(() => setBusy(null));
+                        }}
+                      >
+                        {busy === `queue-album-${a.id}` ? "Queueing..." : "Queue"}
+                      </button>
                     </div>
-                  </Link>
+                  </div>
                 ))}
               </div>
               {hasMore.albums ? (
@@ -346,13 +402,43 @@ export function Library() {
             <>
               <div className="grid">
                 {artists.map((a) => (
-                  <Link id={itemId("library-artist", a.id)} className="card scroll-target" key={a.id} to={`/artist/${a.id}`}>
-                    <img className="cover" src={a.imageUrl || "/artist-placeholder.svg"} alt="" loading="lazy" onError={imageFallback("/artist-placeholder.svg")} />
-                    <div className="meta">
-                      <div className="title">{a.name}</div>
-                      <div className="sub">Artist</div>
+                  <div id={itemId("library-artist", a.id)} className="card scroll-target" key={a.id}>
+                    <Link to={`/artist/${a.id}`}>
+                      <img className="cover" src={a.imageUrl || "/artist-placeholder.svg"} alt="" loading="lazy" onError={imageFallback("/artist-placeholder.svg")} />
+                      <div className="meta">
+                        <div className="title">{a.name}</div>
+                        <div className="sub">Artist</div>
+                      </div>
+                    </Link>
+                    <div className="card-actions">
+                      <button
+                        className="btn"
+                        type="button"
+                        disabled={busy === `play-artist-${a.id}`}
+                        onClick={() => {
+                          setBusy(`play-artist-${a.id}`);
+                          void fetchArtistTracks(a.id)
+                            .then((tracks) => playQueue(tracks.map((t) => t.id), `play-artist-${a.id}`))
+                            .finally(() => setBusy(null));
+                        }}
+                      >
+                        {busy === `play-artist-${a.id}` ? "Playing..." : "Play"}
+                      </button>
+                      <button
+                        className="btn ghost"
+                        type="button"
+                        disabled={busy === `queue-artist-${a.id}`}
+                        onClick={() => {
+                          setBusy(`queue-artist-${a.id}`);
+                          void fetchArtistTracks(a.id)
+                            .then((tracks) => enqueue(tracks.map((t) => t.id), `queue-artist-${a.id}`))
+                            .finally(() => setBusy(null));
+                        }}
+                      >
+                        {busy === `queue-artist-${a.id}` ? "Queueing..." : "Queue"}
+                      </button>
                     </div>
-                  </Link>
+                  </div>
                 ))}
               </div>
               {hasMore.artists ? (
@@ -385,13 +471,14 @@ export function Library() {
                       className="btn"
                       type="button"
                       onClick={() => {
-                        void playerPlay({ itemId: t.id, mode: "replaceQueue", queue: [t.id], defaultQueue: true }).then(() => navigate("/now"));
+                        void playQueue([t.id], `play-track-${t.id}`);
                       }}
+                      disabled={busy === `play-track-${t.id}`}
                     >
-                      Play
+                      {busy === `play-track-${t.id}` ? "Playing..." : "Play"}
                     </button>
-                    <button className="btn ghost" type="button" onClick={() => void playerEnqueue({ itemId: t.id })}>
-                      Queue
+                    <button className="btn ghost" type="button" disabled={busy === `queue-track-${t.id}`} onClick={() => void enqueue([t.id], `queue-track-${t.id}`)}>
+                      {busy === `queue-track-${t.id}` ? "Queueing..." : "Queue"}
                     </button>
                   </div>
                 ))}
@@ -446,17 +533,19 @@ export function Library() {
             <button
               className="btn"
               type="button"
-              disabled={!plTracks.length}
+              disabled={!plTracks.length || busy === "play-playlist"}
               onClick={() => {
                 if (!plTracks.length) return;
-                void playerPlay({
-                  itemId: plTracks[0]!.id,
-                  mode: "replaceQueue",
-                  queue: plTracks.map((t) => t.id),
-                }).then(() => navigate("/now"));
+                void playQueue(
+                  plTracks.map((t) => t.id),
+                  "play-playlist",
+                );
               }}
             >
-              Play playlist
+              {busy === "play-playlist" ? "Playing..." : "Play playlist"}
+            </button>
+            <button className="btn ghost" type="button" disabled={!plTracks.length || busy === "queue-playlist"} onClick={() => void enqueue(plTracks.map((t) => t.id), "queue-playlist")}>
+              {busy === "queue-playlist" ? "Queueing..." : "Queue playlist"}
             </button>
             <button className="btn ghost" type="button" onClick={() => setTab("playlists")}>
               Back
@@ -474,14 +563,15 @@ export function Library() {
                 <button
                   className="btn"
                   type="button"
+                  disabled={busy === `play-playlist-track-${t.id}`}
                   onClick={() => {
-                    void playerPlay({ itemId: t.id, mode: "replaceQueue", queue: plTracks.map((x) => x.id) }).then(() => navigate("/now"));
+                    void playQueue([t.id], `play-playlist-track-${t.id}`);
                   }}
                 >
-                  Play
+                  {busy === `play-playlist-track-${t.id}` ? "Playing..." : "Play"}
                 </button>
-                <button className="btn ghost" type="button" onClick={() => void playerEnqueue({ itemId: t.id })}>
-                  Queue
+                <button className="btn ghost" type="button" disabled={busy === `queue-playlist-track-${t.id}`} onClick={() => void enqueue([t.id], `queue-playlist-track-${t.id}`)}>
+                  {busy === `queue-playlist-track-${t.id}` ? "Queueing..." : "Queue"}
                 </button>
               </div>
             ))}

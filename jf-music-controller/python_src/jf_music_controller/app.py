@@ -99,6 +99,10 @@ def create_app(cfg: AppConfig, paths: SecurePaths) -> FastAPI:
     async def api_artist_albums(artist_id: str):
         return await jf.artist_albums(artist_id)
 
+    @app.get("/api/artists/{artist_id}/tracks")
+    async def api_artist_tracks(artist_id: str):
+        return await jf.artist_tracks(artist_id)
+
     @app.get("/api/albums")
     async def api_albums(start: int = 0, limit: int = 48):
         return await jf.albums_page(start_index=start, limit=limit)
@@ -154,6 +158,21 @@ def create_app(cfg: AppConfig, paths: SecurePaths) -> FastAPI:
         r = await render.get("/player/queue", headers=rh)
         return Response(r.content, status_code=r.status_code, media_type="application/json")
 
+    @app.get("/api/player/queue/details")
+    async def api_player_queue_details():
+        r = await render.get("/player/queue", headers=rh)
+        if r.status_code >= 400:
+            return Response(r.content, status_code=r.status_code, media_type="application/json")
+        current = r.json()
+        ids = [str(x) for x in current.get("itemIds") or [] if x]
+        tracks = []
+        for item_id in ids:
+            try:
+                tracks.append(await jf.track_detail(item_id))
+            except Exception:  # noqa: BLE001
+                tracks.append({"id": item_id, "name": "Unknown track", "artists": [], "album": "", "albumId": "", "imageUrl": None})
+        return {"itemIds": ids, "index": int(current.get("index") or 0), "tracks": tracks}
+
     @app.get("/api/player/events")
     async def api_player_events():
         async def gen():
@@ -172,12 +191,7 @@ def create_app(cfg: AppConfig, paths: SecurePaths) -> FastAPI:
     @app.post("/api/player/play")
     async def api_player_play(request: Request):
         payload = await request.json()
-        item_id = payload.get("itemId")
-        if payload.get("defaultQueue") and item_id and payload.get("mode") == "replaceQueue":
-            payload["queue"] = await jf.default_queue_for_track(str(item_id))
-            payload.pop("defaultQueue", None)
-        if payload.get("mode") == "replaceQueue":
-            request.app.state.manual_queue = []
+        payload.pop("defaultQueue", None)
         r = await render.post("/player/play", json=payload, headers=rh)
         return Response(r.content, status_code=r.status_code, media_type="application/json")
 
@@ -196,21 +210,7 @@ def create_app(cfg: AppConfig, paths: SecurePaths) -> FastAPI:
             return Response(qr.content, status_code=qr.status_code, media_type="application/json")
         current = qr.json()
         existing = [str(x) for x in current.get("itemIds") or []]
-        index = int(current.get("index") or 0)
-        if not existing:
-            next_items = item_ids
-            request.app.state.manual_queue = item_ids
-        else:
-            insert_at = max(0, min(index + 1, len(existing)))
-            head = existing[:insert_at]
-            remaining = existing[insert_at:]
-            manual = [x for x in request.app.state.manual_queue if x in remaining and x not in item_ids]
-            manual.extend(item_ids)
-            manual_set = set(manual)
-            tail = [x for x in remaining if x not in manual_set]
-            next_items = head + manual + tail
-            request.app.state.manual_queue = manual
-
+        next_items = existing + item_ids
         r = await render.post("/player/queue", json={"itemIds": next_items}, headers=rh)
         return Response(r.content, status_code=r.status_code, media_type="application/json")
 

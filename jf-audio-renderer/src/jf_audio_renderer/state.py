@@ -125,6 +125,12 @@ class PlayerRuntime:
                 imageTag=None,
             )
 
+        if item_id and (not self._last_item or self._last_item.get("Id") != item_id):
+            try:
+                self._last_item = await self._jf.get_item(item_id)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("failed to refresh current item metadata: %s", exc)
+
         if item_id and self._last_item and self._last_item.get("Id") == item_id:
             title = self._last_item.get("Name")
             album = (self._last_item.get("Album") or "") or None
@@ -246,7 +252,9 @@ class PlayerRuntime:
             await self._mpv.set_volume(self._volume)
 
     async def set_queue(self, item_ids: list[str]) -> None:
-        await self.queue.set_queue(item_ids, 0)
+        current = await self.queue.current()
+        start_index = item_ids.index(current) if current in item_ids else 0
+        await self.queue.set_queue(item_ids, start_index)
 
     async def remove_queue_item(self, index: int) -> None:
         await self.queue.remove_at(index)

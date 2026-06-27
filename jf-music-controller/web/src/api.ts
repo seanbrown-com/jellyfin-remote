@@ -39,6 +39,10 @@ export type PlayerQueue = {
   index: number;
 };
 
+export type PlayerQueueDetails = PlayerQueue & {
+  tracks: Track[];
+};
+
 export type Page<T> = {
   items: T[];
   total?: number | null;
@@ -94,6 +98,10 @@ export async function fetchArtistAlbums(artistId: string) {
   return j<Album[]>(`/api/artists/${artistId}/albums`);
 }
 
+export async function fetchArtistTracks(artistId: string) {
+  return j<Track[]>(`/api/artists/${artistId}/tracks`);
+}
+
 export async function fetchAlbums(start = 0, limit = 100) {
   const p = new URLSearchParams({ start: String(start), limit: String(limit) });
   return j<Page<Album>>(`/api/albums?${p}`);
@@ -116,7 +124,6 @@ export async function playerPlay(body: {
   itemId?: string | null;
   mode: "replaceQueue" | "append" | "playNow";
   queue: string[];
-  defaultQueue?: boolean;
 }) {
   await j("/api/player/play", {
     method: "POST",
@@ -171,6 +178,26 @@ export async function fetchPlayerState() {
 
 export async function fetchPlayerQueue() {
   return j<PlayerQueue>("/api/player/queue");
+}
+
+export async function fetchPlayerQueueDetails() {
+  return j<PlayerQueueDetails>("/api/player/queue/details");
+}
+
+export async function playerShuffle(enabled?: boolean) {
+  await j("/api/player/shuffle", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(enabled == null ? {} : { enabled }),
+  });
+}
+
+export async function playerRepeat(mode: "none" | "one" | "all") {
+  await j("/api/player/repeat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode }),
+  });
 }
 
 export function ticksToSeconds(ticks?: number | null) {

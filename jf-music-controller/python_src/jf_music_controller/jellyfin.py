@@ -206,6 +206,17 @@ class JellyfinBrowser:
         )
         return [self.normalize_album(x) for x in data.get("Items") or []]
 
+    async def artist_tracks(self, artist_id: str) -> list[dict[str, Any]]:
+        data = await self._items(
+            IncludeItemTypes="Audio",
+            Recursive="true",
+            ArtistIds=artist_id,
+            SortBy="Album,ParentIndexNumber,IndexNumber,SortName",
+            SortOrder="Ascending",
+            Fields="PrimaryImageTag,Album,AlbumArtist,Artists,RunTimeTicks,AlbumId,ParentId",
+        )
+        return [self.normalize_track(x) for x in data.get("Items") or []]
+
     async def albums(self, start_index: int = 0, limit: int = 48) -> list[dict[str, Any]]:
         data = await self._items(
             IncludeItemTypes="MusicAlbum",
