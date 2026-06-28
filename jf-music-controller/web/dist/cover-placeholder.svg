@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-label="Album art placeholder">
+  <defs>
+    <linearGradient id="bg" x1="32" y1="24" x2="288" y2="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#202236"/>
+      <stop offset="0.55" stop-color="#151625"/>
+      <stop offset="1" stop-color="#2a1c30"/>
+    </linearGradient>
+    <linearGradient id="note" x1="118" y1="76" x2="208" y2="230" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#fb7185"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="320" fill="url(#bg)"/>
+  <rect x="58" y="58" width="204" height="204" rx="26" fill="#ffffff" opacity="0.07"/>
+  <path d="M194 91v96.5c0 22.4-18.1 40.5-40.5 40.5S113 209.9 113 187.5s18.1-40.5 40.5-40.5c7.7 0 14.9 2.1 21 5.9V108l77-17v37l-57.5 12.7z" fill="url(#note)"/>
+  <circle cx="153.5" cy="187.5" r="21.5" fill="#f4f4f8" opacity="0.9"/>
+</svg>
