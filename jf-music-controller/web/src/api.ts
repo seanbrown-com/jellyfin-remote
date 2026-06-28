@@ -92,8 +92,9 @@ export async function fetchTrack(trackId: string) {
   return j<Track>(`/api/tracks/${trackId}`);
 }
 
-export async function fetchArtists(start = 0, limit = 100) {
+export async function fetchArtists(start = 0, limit = 100, letter?: string | null) {
   const p = new URLSearchParams({ start: String(start), limit: String(limit) });
+  if (letter) p.set("letter", letter);
   return j<Page<Artist>>(`/api/artists?${p}`);
 }
 
@@ -105,13 +106,15 @@ export async function fetchArtistTracks(artistId: string) {
   return j<Track[]>(`/api/artists/${artistId}/tracks`);
 }
 
-export async function fetchAlbums(start = 0, limit = 100) {
+export async function fetchAlbums(start = 0, limit = 100, letter?: string | null) {
   const p = new URLSearchParams({ start: String(start), limit: String(limit) });
+  if (letter) p.set("letter", letter);
   return j<Page<Album>>(`/api/albums?${p}`);
 }
 
-export async function fetchSongs(start = 0, limit = 100) {
+export async function fetchSongs(start = 0, limit = 100, letter?: string | null) {
   const p = new URLSearchParams({ start: String(start), limit: String(limit) });
+  if (letter) p.set("letter", letter);
   return j<Page<Track>>(`/api/songs?${p}`);
 }
 

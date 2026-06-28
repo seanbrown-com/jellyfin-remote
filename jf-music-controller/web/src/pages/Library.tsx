@@ -61,29 +61,6 @@ function findJumpTarget(items: Indexed[], key: string) {
   );
 }
 
-function estimatedStartForKey(key: string, total: number | null) {
-  if (!total || key === "0") return 0;
-  const letterIndex = Math.max(0, INDEX_KEYS.indexOf(key) - 1);
-  const raw = Math.floor((letterIndex / 26) * total);
-  return Math.max(0, Math.floor(raw / PAGE_SIZE) * PAGE_SIZE);
-}
-
-function keyRank(name: string) {
-  return INDEX_KEYS.indexOf(indexKey(name));
-}
-
-function pageBounds(items: Indexed[]) {
-  if (!items.length) return null;
-  return {
-    first: keyRank(items[0]!.name),
-    last: keyRank(items[items.length - 1]!.name),
-  };
-}
-
-function matchingItems<T extends Indexed>(items: T[], key: string) {
-  return items.filter((item) => indexKey(item.name) === key);
-}
-
 function PageLoader() {
   return (
     <div className="page-loader" role="status" aria-live="polite" aria-label="Loading more results">
@@ -249,12 +226,11 @@ export function Library() {
       if (loadingRef.current[target]) return;
 
       const fetchPage = async (start: number) => {
-        if (target === "artists") return fetchArtists(start, PAGE_SIZE);
-        if (target === "albums") return fetchAlbums(start, PAGE_SIZE);
-        return fetchSongs(start, PAGE_SIZE);
+        if (target === "artists") return fetchArtists(start, PAGE_SIZE, key);
+        if (target === "albums") return fetchAlbums(start, PAGE_SIZE, key);
+        return fetchSongs(start, PAGE_SIZE, key);
       };
 
-      const targetRank = INDEX_KEYS.indexOf(key);
       setErr(null);
       setJumpingKey(key);
       loadingRef.current[target] = true;
@@ -263,68 +239,22 @@ export function Library() {
       setLoadedLetter((prev) => ({ ...prev, [target]: null }));
 
       try {
-        let total = totalCount[target];
-        if (total == null) {
-          const first = await fetchPage(0);
-          total = first.total ?? first.items.length;
-          setTotalCount((prev) => ({ ...prev, [target]: total }));
-        }
-
-        const maxStart = Math.max(0, Math.floor(Math.max(total - 1, 0) / PAGE_SIZE) * PAGE_SIZE);
-        const pages = new Map<number, PagedItem[]>();
-        const getPage = async (start: number) => {
-          const bounded = Math.max(0, Math.min(start, maxStart));
-          if (pages.has(bounded)) return pages.get(bounded)!;
-          const page = await fetchPage(bounded);
-          const items = page.items as PagedItem[];
-          pages.set(bounded, items);
-          if (page.total != null) setTotalCount((prev) => ({ ...prev, [target]: page.total ?? null }));
-          return items;
-        };
-
-        let start = Math.min(estimatedStartForKey(key, total), maxStart);
-        let pageItems = await getPage(start);
-        let bounds = pageBounds(pageItems);
-        let guard = Math.ceil((total || PAGE_SIZE) / PAGE_SIZE) + 2;
-
-        while (bounds && guard > 0) {
-          guard -= 1;
-          if (bounds.first > targetRank && start > 0) {
-            start = Math.max(0, start - PAGE_SIZE);
-          } else if (bounds.last < targetRank && start < maxStart) {
-            start = Math.min(maxStart, start + PAGE_SIZE);
-          } else {
-            break;
-          }
-          pageItems = await getPage(start);
-          bounds = pageBounds(pageItems);
-        }
-
-        let minStart = start;
-        let maxSeenStart = start;
-
-        while (minStart > 0) {
-          const prevStart = Math.max(0, minStart - PAGE_SIZE);
-          const prev = await getPage(prevStart);
-          const prevBounds = pageBounds(prev);
-          if (!prevBounds || prevBounds.last < targetRank) break;
-          minStart = prevStart;
-          if (prevBounds.first < targetRank && !matchingItems(prev, key).length) break;
-        }
-
-        while (maxSeenStart < maxStart) {
-          const nextStart = Math.min(maxStart, maxSeenStart + PAGE_SIZE);
-          const next = await getPage(nextStart);
-          const nextBounds = pageBounds(next);
-          if (!nextBounds || nextBounds.first > targetRank) break;
-          maxSeenStart = nextStart;
-          if (nextBounds.last > targetRank && !matchingItems(next, key).length) break;
-        }
-
+        let start = 0;
+        let total: number | null = null;
         let matches: PagedItem[] = [];
-        for (let pageStart = minStart; pageStart <= maxSeenStart; pageStart += PAGE_SIZE) {
-          matches = mergeUnique(matches, matchingItems(await getPage(pageStart), key));
+        let keepGoing = true;
+
+        while (keepGoing) {
+          const page = await fetchPage(start);
+          const items = page.items as PagedItem[];
+          total = page.total ?? total;
+          matches = mergeUnique(matches, items);
+          setLetterItems((prev) => ({ ...prev, [target]: matches }));
+          start += items.length;
+          keepGoing = items.length === PAGE_SIZE && (total == null || start < total);
         }
+
+        if (total != null) setTotalCount((prev) => ({ ...prev, [target]: total }));
         setLetterItems((prev) => ({ ...prev, [target]: matches }));
         setLoadedLetter((prev) => ({ ...prev, [target]: key }));
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -336,7 +266,7 @@ export function Library() {
         setJumpingKey(null);
       }
     },
-    [totalCount],
+    [],
   );
 
   useEffect(() => {

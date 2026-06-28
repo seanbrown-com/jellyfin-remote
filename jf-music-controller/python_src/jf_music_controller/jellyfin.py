@@ -12,6 +12,17 @@ def _primary_tag(item: dict[str, Any]) -> str | None:
     return tags.get("Primary")
 
 
+def _letter_params(letter: str | None) -> dict[str, str]:
+    if not letter:
+        return {}
+    key = letter.strip().upper()
+    if key == "0":
+        return {"NameStartsWithOrGreater": "0", "NameLessThan": "A"}
+    if len(key) == 1 and "A" <= key <= "Z":
+        return {"NameStartsWith": key}
+    return {}
+
+
 class JellyfinBrowser:
     def __init__(self, cfg: JellyfinConfig) -> None:
         self._cfg = cfg
@@ -181,7 +192,7 @@ class JellyfinBrowser:
         )
         return [self.normalize_artist(x) for x in data.get("Items") or []]
 
-    async def artists_page(self, start_index: int = 0, limit: int = 100) -> dict[str, Any]:
+    async def artists_page(self, start_index: int = 0, limit: int = 100, letter: str | None = None) -> dict[str, Any]:
         data = await self._items(
             IncludeItemTypes="MusicArtist",
             Recursive="true",
@@ -190,6 +201,7 @@ class JellyfinBrowser:
             StartIndex=start_index,
             Limit=limit,
             Fields="PrimaryImageTag",
+            **_letter_params(letter),
         )
         return {
             "items": [self.normalize_artist(x) for x in data.get("Items") or []],
@@ -229,7 +241,7 @@ class JellyfinBrowser:
         )
         return [self.normalize_album(x) for x in data.get("Items") or []]
 
-    async def albums_page(self, start_index: int = 0, limit: int = 100) -> dict[str, Any]:
+    async def albums_page(self, start_index: int = 0, limit: int = 100, letter: str | None = None) -> dict[str, Any]:
         data = await self._items(
             IncludeItemTypes="MusicAlbum",
             Recursive="true",
@@ -238,6 +250,7 @@ class JellyfinBrowser:
             StartIndex=start_index,
             Limit=limit,
             Fields="PrimaryImageTag,ProductionYear,ChildCount,AlbumArtist,AlbumArtists,ArtistItems",
+            **_letter_params(letter),
         )
         return {
             "items": [self.normalize_album(x) for x in data.get("Items") or []],
@@ -273,7 +286,7 @@ class JellyfinBrowser:
         )
         return [self.normalize_track(x) for x in data.get("Items") or []]
 
-    async def songs_page(self, start_index: int = 0, limit: int = 100) -> dict[str, Any]:
+    async def songs_page(self, start_index: int = 0, limit: int = 100, letter: str | None = None) -> dict[str, Any]:
         data = await self._items(
             IncludeItemTypes="Audio",
             Recursive="true",
@@ -282,6 +295,7 @@ class JellyfinBrowser:
             StartIndex=start_index,
             Limit=limit,
             Fields="PrimaryImageTag,Album,AlbumArtist,Artists,RunTimeTicks,AlbumId,ParentId",
+            **_letter_params(letter),
         )
         return {
             "items": [self.normalize_track(x) for x in data.get("Items") or []],
