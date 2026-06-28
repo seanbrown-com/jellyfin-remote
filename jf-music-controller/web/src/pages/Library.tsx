@@ -9,6 +9,7 @@ type Indexed = { id: string; name: string };
 type PagedItem = Artist | Album | Track;
 
 const PAGE_SIZE = 100;
+const LETTER_PAGE_SIZE = 200;
 const INDEX_KEYS = ["0", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
 
 function indexKey(name: string) {
@@ -101,6 +102,7 @@ export function Library() {
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const loadingRef = useRef<Record<PagedTab, boolean>>({ artists: false, albums: false, songs: false });
   const nextStartRef = useRef<Record<PagedTab, number>>({ artists: 0, albums: 0, songs: 0 });
+  const letterNextStartRef = useRef<Record<PagedTab, number>>({ artists: 0, albums: 0, songs: 0 });
 
   const [artists, setArtists] = useState<Artist[] | null>(null);
   const [albums, setAlbums] = useState<Album[] | null>(null);
@@ -110,6 +112,7 @@ export function Library() {
   const [err, setErr] = useState<string | null>(null);
   const [loadingPage, setLoadingPage] = useState<Record<PagedTab, boolean>>({ artists: false, albums: false, songs: false });
   const [hasMore, setHasMore] = useState<Record<PagedTab, boolean>>({ artists: true, albums: true, songs: true });
+  const [letterHasMore, setLetterHasMore] = useState<Record<PagedTab, boolean>>({ artists: true, albums: true, songs: true });
   const [totalCount, setTotalCount] = useState<Record<PagedTab, number | null>>({ artists: null, albums: null, songs: null });
   const [jumpingKey, setJumpingKey] = useState<string | null>(null);
   const [letterItems, setLetterItems] = useState<Record<PagedTab, PagedItem[] | null>>({ artists: null, albums: null, songs: null });
@@ -176,22 +179,6 @@ export function Library() {
   }, [albums, artists, loadPage, playlists, songs, tab]);
 
   useEffect(() => {
-    if (!isPagedTab(tab)) return;
-    if (letterKey) return;
-    const node = loadMoreRef.current;
-    if (!node || !hasMore[tab]) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) void loadPage(tab);
-      },
-      { rootMargin: "360px 0px 360px 0px" },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [hasMore, letterKey, loadPage, tab]);
-
-  useEffect(() => {
     if (tab !== "playlists" || !playlistId) {
       setPlTracks(null);
       return;
@@ -202,8 +189,10 @@ export function Library() {
   }, [tab, playlistId]);
 
   const showLetter = (target: PagedTab, key: string) => {
+    letterNextStartRef.current[target] = 0;
     setLetterItems((prev) => ({ ...prev, [target]: null }));
     setLoadedLetter((prev) => ({ ...prev, [target]: null }));
+    setLetterHasMore((prev) => ({ ...prev, [target]: true }));
     setSp((prev) => {
       const next = new URLSearchParams(prev);
       next.set("tab", target);
@@ -222,42 +211,39 @@ export function Library() {
   };
 
   const loadLetterPage = useCallback(
-    async (target: PagedTab, key: string) => {
+    async (target: PagedTab, key: string, reset = false) => {
       if (loadingRef.current[target]) return;
+      if (!reset && !letterHasMore[target]) return;
 
       const fetchPage = async (start: number) => {
-        if (target === "artists") return fetchArtists(start, PAGE_SIZE, key);
-        if (target === "albums") return fetchAlbums(start, PAGE_SIZE, key);
-        return fetchSongs(start, PAGE_SIZE, key);
+        if (target === "artists") return fetchArtists(start, LETTER_PAGE_SIZE, key);
+        if (target === "albums") return fetchAlbums(start, LETTER_PAGE_SIZE, key);
+        return fetchSongs(start, LETTER_PAGE_SIZE, key);
       };
+
+      if (reset) letterNextStartRef.current[target] = 0;
+      const start = letterNextStartRef.current[target];
 
       setErr(null);
       setJumpingKey(key);
       loadingRef.current[target] = true;
       setLoadingPage((prev) => ({ ...prev, [target]: true }));
-      setLetterItems((prev) => ({ ...prev, [target]: null }));
-      setLoadedLetter((prev) => ({ ...prev, [target]: null }));
+      if (reset) {
+        setLetterItems((prev) => ({ ...prev, [target]: null }));
+        setLoadedLetter((prev) => ({ ...prev, [target]: null }));
+        setLetterHasMore((prev) => ({ ...prev, [target]: true }));
+      }
 
       try {
-        let start = 0;
-        let total: number | null = null;
-        let matches: PagedItem[] = [];
-        let keepGoing = true;
-
-        while (keepGoing) {
-          const page = await fetchPage(start);
-          const items = page.items as PagedItem[];
-          total = page.total ?? total;
-          matches = mergeUnique(matches, items);
-          setLetterItems((prev) => ({ ...prev, [target]: matches }));
-          start += items.length;
-          keepGoing = items.length === PAGE_SIZE && (total == null || start < total);
-        }
-
+        const page = await fetchPage(start);
+        const items = page.items as PagedItem[];
+        const total = page.total ?? null;
+        letterNextStartRef.current[target] = start + items.length;
         if (total != null) setTotalCount((prev) => ({ ...prev, [target]: total }));
-        setLetterItems((prev) => ({ ...prev, [target]: matches }));
+        setLetterHasMore((prev) => ({ ...prev, [target]: items.length === LETTER_PAGE_SIZE && (total == null || start + items.length < total) }));
+        setLetterItems((prev) => (reset || !prev[target] ? { ...prev, [target]: items } : { ...prev, [target]: mergeUnique(prev[target] || [], items) }));
         setLoadedLetter((prev) => ({ ...prev, [target]: key }));
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        if (reset) window.scrollTo({ top: 0, behavior: "smooth" });
       } catch (e) {
         setErr(e instanceof Error ? e.message : String(e));
       } finally {
@@ -266,14 +252,32 @@ export function Library() {
         setJumpingKey(null);
       }
     },
-    [],
+    [letterHasMore],
   );
+
+  useEffect(() => {
+    if (!isPagedTab(tab)) return;
+    const node = loadMoreRef.current;
+    if (!node) return;
+    if (letterKey ? !letterHasMore[tab] : !hasMore[tab]) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting) return;
+        if (letterKey) void loadLetterPage(tab, letterKey);
+        else void loadPage(tab);
+      },
+      { rootMargin: "360px 0px 360px 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMore, letterHasMore, letterKey, loadLetterPage, loadPage, tab]);
 
   useEffect(() => {
     if (!isPagedTab(tab) || !letterKey) return;
     if (!INDEX_KEYS.includes(letterKey)) return;
     if (loadedLetter[tab] === letterKey && letterItems[tab] !== null) return;
-    void loadLetterPage(tab, letterKey);
+    void loadLetterPage(tab, letterKey, true);
   }, [letterItems, letterKey, loadLetterPage, loadedLetter, tab]);
 
   const setTab = (t: Tab) => {
@@ -398,7 +402,7 @@ export function Library() {
                   </div>
                 ))}
               </div>
-              {!letterKey && hasMore.albums ? (
+              {(letterKey ? letterHasMore.albums : hasMore.albums) ? (
                 <div ref={loadMoreRef} className="load-more-sentinel">
                   {loadingPage.albums ? <PageLoader /> : null}
                 </div>
@@ -464,7 +468,7 @@ export function Library() {
                   </div>
                 ))}
               </div>
-              {!letterKey && hasMore.artists ? (
+              {(letterKey ? letterHasMore.artists : hasMore.artists) ? (
                 <div ref={loadMoreRef} className="load-more-sentinel">
                   {loadingPage.artists ? <PageLoader /> : null}
                 </div>
@@ -514,7 +518,7 @@ export function Library() {
                   </div>
                 ))}
               </div>
-              {!letterKey && hasMore.songs ? (
+              {(letterKey ? letterHasMore.songs : hasMore.songs) ? (
                 <div ref={loadMoreRef} className="load-more-sentinel">
                   {loadingPage.songs ? <PageLoader /> : null}
                 </div>

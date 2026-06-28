@@ -49,6 +49,11 @@ class JellyfinBrowser:
         r.raise_for_status()
         return r.json()
 
+    async def _artists(self, **params: Any) -> dict[str, Any]:
+        r = await self._client.get("/Artists", params={"UserId": self._cfg.user_id, **params})
+        r.raise_for_status()
+        return r.json()
+
     async def get_item(self, item_id: str) -> dict[str, Any]:
         r = await self._client.get(
             f"/Users/{self._cfg.user_id}/Items/{item_id}",
@@ -181,9 +186,7 @@ class JellyfinBrowser:
         return [self.normalize_track(x) for x in data.get("Items") or []]
 
     async def artists(self, start_index: int = 0, limit: int = 100) -> list[dict[str, Any]]:
-        data = await self._items(
-            IncludeItemTypes="MusicArtist",
-            Recursive="true",
+        data = await self._artists(
             SortBy="SortName",
             SortOrder="Ascending",
             StartIndex=start_index,
@@ -193,9 +196,7 @@ class JellyfinBrowser:
         return [self.normalize_artist(x) for x in data.get("Items") or []]
 
     async def artists_page(self, start_index: int = 0, limit: int = 100, letter: str | None = None) -> dict[str, Any]:
-        data = await self._items(
-            IncludeItemTypes="MusicArtist",
-            Recursive="true",
+        data = await self._artists(
             SortBy="SortName",
             SortOrder="Ascending",
             StartIndex=start_index,
