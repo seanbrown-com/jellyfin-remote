@@ -56,10 +56,15 @@ function Layout() {
   const state = usePlayerStream();
   const loc = useLocation();
   const [theme, setTheme] = useState(() => window.localStorage.getItem("jf-theme") || "dark");
+  const [accent, setAccent] = useState(() => window.localStorage.getItem("jf-accent") || "purple");
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     window.localStorage.setItem("jf-theme", theme);
   }, [theme]);
+  useEffect(() => {
+    document.documentElement.dataset.accent = accent;
+    window.localStorage.setItem("jf-accent", accent);
+  }, [accent]);
   const tab = useMemo(() => {
     if (loc.pathname.startsWith("/search")) return "search";
     if (loc.pathname.startsWith("/library") || loc.pathname.startsWith("/album") || loc.pathname.startsWith("/artist")) return "library";
@@ -72,7 +77,7 @@ function Layout() {
     <div className="shell">
       <div className="page">
         <MiniPlayer state={state} />
-        <Outlet context={{ player: state, theme, setTheme }} />
+        <Outlet context={{ player: state, theme, setTheme, accent, setAccent }} />
       </div>
       <nav className="nav">
         <NavLink className={({ isActive }) => (isActive ? "active" : "")} to="/" end>
