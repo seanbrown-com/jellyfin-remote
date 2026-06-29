@@ -192,7 +192,9 @@ body::before {
 }
 
 :root[data-theme="light"] body::before {
-  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.1), transparent 280px), var(--bg);
+  background: radial-gradient(980px 520px at 14% -8%, rgba(var(--accent-rgb), 0.18), transparent 60%),
+    radial-gradient(780px 420px at 104% 8%, rgba(var(--accent-2-rgb), 0.12), transparent 58%),
+    radial-gradient(720px 420px at 52% 104%, rgba(var(--accent-rgb), 0.08), transparent 62%), var(--bg);
 }
 
 a {
@@ -237,6 +239,15 @@ h1 {
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+}
+
+.card > a {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .card .cover {
@@ -253,6 +264,7 @@ h1 {
 
 .card .meta {
   padding: 10px 10px 12px;
+  flex: 1;
 }
 
 .card-actions {
@@ -260,6 +272,7 @@ h1 {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   padding: 0 10px 10px;
+  margin-top: auto;
 }
 
 .card-actions .btn {
@@ -489,6 +502,7 @@ h1 {
   left: 0;
   right: 0;
   bottom: 0;
+  width: 100vw;
   height: calc(var(--nav-h) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
   border-top: 1px solid var(--border);
@@ -515,15 +529,36 @@ h1 {
   color: var(--text);
 }
 
+:root[data-theme="light"] .nav {
+  border-top-color: rgba(var(--accent-rgb), 0.22);
+  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.13), rgba(var(--accent-rgb), 0.07)), color-mix(in srgb, var(--bg-card) 88%, var(--bg));
+  box-shadow: 0 -10px 30px rgba(var(--accent-rgb), 0.1);
+}
+
+:root[data-theme="light"] .nav a {
+  color: color-mix(in srgb, var(--text) 76%, var(--accent));
+}
+
+:root[data-theme="light"] .nav a.active {
+  color: var(--text);
+}
+
 .mini {
   position: sticky;
   top: 0;
   z-index: 10;
-  margin: -8px -16px 10px;
+  margin: 0 0 12px;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(10, 10, 15, 0.55);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
   backdrop-filter: blur(12px);
+}
+
+:root[data-theme="light"] .mini {
+  border-color: rgba(var(--accent-rgb), 0.26);
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
+  box-shadow: 0 10px 30px rgba(var(--accent-rgb), 0.08);
 }
 
 .mini .inner {
@@ -583,7 +618,7 @@ h1 {
   text-align: center;
 }
 
-.np .sub {
+.np > .sub {
   text-align: center;
   color: var(--muted);
   margin-top: 6px;
@@ -651,7 +686,6 @@ h1 {
 
 .next-card,
 .settings-card {
-  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 14px;
 }
@@ -662,6 +696,11 @@ h1 {
   gap: 10px;
   align-items: center;
   padding: 10px;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.12), rgba(var(--accent-2-rgb), 0.06)), color-mix(in srgb, var(--bg-card) 82%, var(--bg));
+}
+
+.settings-card {
+  background: var(--bg-card);
 }
 
 .next-card img {
@@ -677,6 +716,12 @@ h1 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.next-card .sub {
+  color: var(--muted);
+  margin-top: 4px;
+  text-align: left;
 }
 
 .settings-card {
