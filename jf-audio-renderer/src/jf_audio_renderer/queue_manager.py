@@ -16,6 +16,7 @@ class QueueManager:
         self._index: int = 0
         self._shuffle: bool = False
         self._repeat: RepeatMode = RepeatMode.NONE
+        self._shuffle_next_index: int | None = None
         self._lock = asyncio.Lock()
 
     async def get_flags(self) -> tuple[bool, RepeatMode]:
@@ -26,10 +27,15 @@ class QueueManager:
         async with self._lock:
             return list(self._items), self._index
 
+    async def snapshot_with_next(self) -> tuple[list[str], int, int | None]:
+        async with self._lock:
+            return list(self._items), self._index, self._peek_next_index_locked()
+
     async def set_queue(self, item_ids: list[str], start_index: int = 0) -> None:
         async with self._lock:
             self._items = list(item_ids)
             self._index = max(0, min(start_index, len(self._items) - 1 if self._items else 0))
+            self._validate_shuffle_next_locked()
 
     async def replace_with(self, item_ids: list[str], play_index: int = 0) -> None:
         async with self._lock:
@@ -38,16 +44,21 @@ class QueueManager:
                 self._index = 0
             else:
                 self._index = max(0, min(play_index, len(self._items) - 1))
+            self._shuffle_next_index = None
+            self._validate_shuffle_next_locked()
 
     async def append(self, item_ids: list[str]) -> None:
         async with self._lock:
             self._items.extend(item_ids)
+            self._validate_shuffle_next_locked()
 
     async def insert_next(self, item_ids: list[str]) -> None:
         async with self._lock:
             pos = min(self._index + 1, len(self._items))
             for i, x in enumerate(item_ids):
                 self._items.insert(pos + i, x)
+            self._shuffle_next_index = None
+            self._validate_shuffle_next_locked()
 
     async def current(self) -> str | None:
         async with self._lock:
@@ -68,6 +79,8 @@ class QueueManager:
                 self._index -= 1
             elif self._index >= len(self._items):
                 self._index = max(0, len(self._items) - 1)
+            self._shuffle_next_index = None
+            self._validate_shuffle_next_locked()
 
     async def reorder(self, from_index: int, to_index: int) -> None:
         async with self._lock:
@@ -84,12 +97,22 @@ class QueueManager:
                     self._index -= 1
                 elif to_index <= self._index < from_index:
                     self._index += 1
+            self._shuffle_next_index = None
+            self._validate_shuffle_next_locked()
 
     async def next_track(self) -> str | None:
         async with self._lock:
             if not self._items:
                 return None
             if self._repeat == RepeatMode.ONE:
+                return self._items[self._index]
+            if self._shuffle:
+                idx = self._peek_next_index_locked()
+                if idx is None:
+                    return None
+                self._index = idx
+                self._shuffle_next_index = None
+                self._validate_shuffle_next_locked()
                 return self._items[self._index]
             if self._index + 1 < len(self._items):
                 self._index += 1
@@ -102,6 +125,8 @@ class QueueManager:
     async def previous_track(self) -> str | None:
         async with self._lock:
             if not self._items:
+                return None
+            if self._shuffle:
                 return None
             if self._repeat == RepeatMode.ONE:
                 return self._items[self._index]
@@ -116,13 +141,32 @@ class QueueManager:
     async def set_shuffle(self, enabled: bool) -> None:
         async with self._lock:
             self._shuffle = enabled
-            if enabled and len(self._items) > 1:
-                cur = self._items[self._index]
-                rest = [x for i, x in enumerate(self._items) if i != self._index]
-                random.shuffle(rest)
-                self._items = [cur] + rest
-                self._index = 0
+            if not enabled:
+                self._shuffle_next_index = None
+            self._validate_shuffle_next_locked()
 
     async def set_repeat(self, mode: RepeatMode) -> None:
         async with self._lock:
             self._repeat = mode
+
+    def _peek_next_index_locked(self) -> int | None:
+        if not self._items:
+            return None
+        if self._repeat == RepeatMode.ONE:
+            return self._index
+        if self._shuffle:
+            self._validate_shuffle_next_locked()
+            return self._shuffle_next_index
+        if self._index + 1 < len(self._items):
+            return self._index + 1
+        if self._repeat == RepeatMode.ALL:
+            return 0
+        return None
+
+    def _validate_shuffle_next_locked(self) -> None:
+        if not self._shuffle or not self._items:
+            self._shuffle_next_index = None
+            return
+        if self._shuffle_next_index is not None and 0 <= self._shuffle_next_index < len(self._items):
+            return
+        self._shuffle_next_index = random.randrange(len(self._items))

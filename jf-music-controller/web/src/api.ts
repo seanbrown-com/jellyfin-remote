@@ -37,6 +37,7 @@ export type PlayerState = {
 export type PlayerQueue = {
   itemIds: string[];
   index: number;
+  nextIndex?: number | null;
 };
 
 export type PlayerQueueDetails = PlayerQueue & {

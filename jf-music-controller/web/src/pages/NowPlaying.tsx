@@ -152,7 +152,14 @@ export function NowPlaying() {
       </div>
 
       <div className="controls">
-        <button className="bigbtn" type="button" onClick={() => void playerPrevious()} aria-label="Previous track" title="Previous track">
+        <button
+          className="bigbtn"
+          type="button"
+          onClick={() => void playerPrevious()}
+          disabled={Boolean(player?.shuffle)}
+          aria-label={player?.shuffle ? "Previous disabled while shuffle is on" : "Previous track"}
+          title={player?.shuffle ? "Previous is disabled while shuffle is on" : "Previous track"}
+        >
           <span className="control-icon previous" aria-hidden="true" />
         </button>
         <button className="bigbtn play" type="button" onClick={() => void toggle()} aria-label={playPauseLabel} title={playPauseLabel}>

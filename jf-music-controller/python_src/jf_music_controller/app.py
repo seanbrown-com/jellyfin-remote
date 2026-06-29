@@ -197,6 +197,11 @@ def create_app(cfg: AppConfig, paths: SecurePaths) -> FastAPI:
         current_index = queue_index
         if currentId and currentId in ids:
             current_index = ids.index(currentId)
+        raw_next_index = current.get("nextIndex")
+        try:
+            next_index = int(raw_next_index) if raw_next_index is not None else current_index + 1
+        except (TypeError, ValueError):
+            next_index = current_index + 1
 
         async def load_track(item_id: str) -> dict[str, object]:
             try:
@@ -205,12 +210,12 @@ def create_app(cfg: AppConfig, paths: SecurePaths) -> FastAPI:
                 return {"id": item_id, "name": "Unknown track", "artists": [], "album": "", "albumId": "", "imageUrl": None}
 
         current_track = await load_track(ids[current_index]) if 0 <= current_index < len(ids) else None
-        next_index = current_index + 1
         next_track = await load_track(ids[next_index]) if next_index < len(ids) else None
         return {
             "itemIds": ids,
             "index": queue_index,
             "currentIndex": current_index,
+            "nextIndex": next_index if 0 <= next_index < len(ids) else None,
             "current": current_track,
             "next": next_track,
             "tracks": [x for x in (current_track, next_track) if x],

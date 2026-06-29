@@ -110,8 +110,8 @@ def create_app(cfg: AppConfig, paths: SecurePaths) -> FastAPI:
 
     @app.get("/player/queue")
     async def player_queue():
-        items, idx = await rt.queue.snapshot()
-        return {"itemIds": items, "index": idx}
+        items, idx, next_idx = await rt.queue.snapshot_with_next()
+        return {"itemIds": items, "index": idx, "nextIndex": next_idx}
 
     @app.post("/player/play")
     async def player_play(body: PlayRequest):
