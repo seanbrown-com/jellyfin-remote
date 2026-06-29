@@ -64,7 +64,7 @@ export function Album() {
           {busy === "shuffle-album" ? "Shuffling..." : "Shuffle"}
         </button>
         <button className="btn ghost" type="button" disabled={busy === "queue-album"} onClick={() => void enqueue(ids, "queue-album")}>
-          {busy === "queue-album" ? "Queueing..." : "Queue album"}
+          {busy === "queue-album" ? "Queueing..." : "Queue Album"}
         </button>
       </div>
       {toast ? <div className="toast">{toast}</div> : null}

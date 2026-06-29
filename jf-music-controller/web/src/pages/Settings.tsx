@@ -44,10 +44,10 @@ export function Settings() {
         </div>
         <div className="settings-card" style={{ marginTop: 12 }}>
           <div className="row" style={{ justifyContent: "space-between", marginBottom: 10 }}>
-            <span className="muted">Accent color</span>
+            <span className="muted">Accent Color</span>
             <strong>{ACCENTS.find((item) => item.id === accent)?.label || "Purple"}</strong>
           </div>
-          <div className="swatch-grid" aria-label="Accent color">
+          <div className="swatch-grid" aria-label="Accent Color">
             {ACCENTS.map((item) => (
               <button
                 key={item.id}
