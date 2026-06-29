@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { Album, Artist, Track } from "../api";
 import { fetchAlbumTracks, fetchArtistTracks, playerEnqueue, playerPlay, searchMusic } from "../api";
@@ -71,44 +71,28 @@ export function Search() {
         <>
           <div className="section">
             <h2>Artists</h2>
-            <div className="tracklist">
+            <div className="grid">
               {res.artists.map((a: Artist) => (
-                <div key={a.id} className="track" style={{ gridTemplateColumns: "1fr auto auto auto" }}>
-                  <Link to={`/artist/${a.id}`} style={{ minWidth: 0 }}>
-                    <div className="name">{a.name}</div>
-                    <div className="sub">Artist</div>
-                  </Link>
-                  <button
-                    className="btn"
-                    type="button"
-                    disabled={busy === `play-artist-${a.id}`}
-                    onClick={() => {
-                      setBusy(`play-artist-${a.id}`);
-                      void fetchArtistTracks(a.id)
-                        .then((tracks) => playQueue(tracks.map((t) => t.id), `play-artist-${a.id}`))
-                        .finally(() => setBusy(null));
-                    }}
-                  >
-                    {busy === `play-artist-${a.id}` ? "Playing..." : "Play"}
-                  </button>
-                  <button
-                    className="btn ghost"
-                    type="button"
-                    disabled={busy === `queue-artist-${a.id}`}
-                    onClick={() => {
-                      setBusy(`queue-artist-${a.id}`);
-                      void fetchArtistTracks(a.id)
-                        .then((tracks) => enqueue(tracks.map((t) => t.id), `queue-artist-${a.id}`))
-                        .finally(() => setBusy(null));
-                    }}
-                  >
-                    {busy === `queue-artist-${a.id}` ? "Queueing..." : "Queue"}
-                  </button>
-                  <Link className="btn ghost" to={`/artist/${a.id}`}>Open</Link>
-                </div>
+                <ArtistCard
+                  key={a.id}
+                  a={a}
+                  busy={busy}
+                  onPlay={() => {
+                    setBusy(`play-artist-${a.id}`);
+                    void fetchArtistTracks(a.id)
+                      .then((tracks) => playQueue(tracks.map((t) => t.id), `play-artist-${a.id}`))
+                      .finally(() => setBusy(null));
+                  }}
+                  onQueue={() => {
+                    setBusy(`queue-artist-${a.id}`);
+                    void fetchArtistTracks(a.id)
+                      .then((tracks) => enqueue(tracks.map((t) => t.id), `queue-artist-${a.id}`))
+                      .finally(() => setBusy(null));
+                  }}
+                />
               ))}
-              {!res.artists.length ? <div className="muted" style={{ padding: 12 }}>No artists</div> : null}
             </div>
+            {!res.artists.length ? <div className="muted" style={{ padding: 12 }}>No artists</div> : null}
           </div>
           <div className="section">
             <h2>Albums</h2>
@@ -174,7 +158,7 @@ function AlbumCard({ a, busy, onPlay, onQueue }: { a: Album; busy: string | null
   return (
     <div className="card">
       <Link to={`/album/${a.id}`}>
-        <img className="cover" src={img} alt="" loading="lazy" />
+        <img className="cover" src={img} alt="" loading="lazy" onError={imageFallback("/cover-placeholder.svg")} />
         <div className="meta">
           <div className="title">{a.name}</div>
           <div className="sub">{a.artist}</div>
@@ -190,4 +174,35 @@ function AlbumCard({ a, busy, onPlay, onQueue }: { a: Album; busy: string | null
       </div>
     </div>
   );
+}
+
+function ArtistCard({ a, busy, onPlay, onQueue }: { a: Artist; busy: string | null; onPlay: () => void; onQueue: () => void }) {
+  const img = a.imageUrl || "/artist-placeholder.svg";
+  return (
+    <div className="card">
+      <Link to={`/artist/${a.id}`}>
+        <img className="cover" src={img} alt="" loading="lazy" onError={imageFallback("/artist-placeholder.svg")} />
+        <div className="meta">
+          <div className="title">{a.name}</div>
+          <div className="sub">Artist</div>
+        </div>
+      </Link>
+      <div className="card-actions">
+        <button className="btn" type="button" disabled={busy === `play-artist-${a.id}`} onClick={onPlay}>
+          {busy === `play-artist-${a.id}` ? "Playing..." : "Play"}
+        </button>
+        <button className="btn ghost" type="button" disabled={busy === `queue-artist-${a.id}`} onClick={onQueue}>
+          {busy === `queue-artist-${a.id}` ? "Queueing..." : "Queue"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function imageFallback(src: string) {
+  return (event: SyntheticEvent<HTMLImageElement>) => {
+    const img = event.currentTarget;
+    if (img.src.endsWith(src)) return;
+    img.src = src;
+  };
 }
