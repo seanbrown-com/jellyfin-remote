@@ -25,6 +25,14 @@ export function NowPlaying() {
   const title = currentTrack?.name || player?.title || "Nothing playing";
   const artists = currentTrack?.artists.join(", ") || (player?.artists && player.artists.join(", ")) || "";
   const album = currentTrack?.album || player?.album || "";
+  const playPauseLabel = player?.state === "playing" ? "Pause" : "Play";
+  const shuffleLabel = player?.shuffle ? "Shuffle on. Click to turn off." : "Shuffle off. Click to turn on.";
+  const repeatLabel =
+    player?.repeat === "one"
+      ? "Repeat one track. Click for repeat all."
+      : player?.repeat === "all"
+        ? "Repeat all queued tracks. Click to turn repeat off."
+        : "Repeat off. Click for repeat one.";
 
   useEffect(() => {
     let cancelled = false;
@@ -119,6 +127,8 @@ export function NowPlaying() {
         <input
           className="slider"
           type="range"
+          title="Seek"
+          aria-label="Seek"
           min={0}
           max={maxDur}
           step={0.25}
@@ -142,25 +152,39 @@ export function NowPlaying() {
       </div>
 
       <div className="controls">
-        <button className="bigbtn" type="button" onClick={() => void playerPrevious()} aria-label="Previous">
+        <button className="bigbtn" type="button" onClick={() => void playerPrevious()} aria-label="Previous track" title="Previous track">
           <span className="control-icon previous" aria-hidden="true" />
         </button>
-        <button className="bigbtn play" type="button" onClick={() => void toggle()} aria-label="Play pause">
+        <button className="bigbtn play" type="button" onClick={() => void toggle()} aria-label={playPauseLabel} title={playPauseLabel}>
           <span className={`control-icon ${player?.state === "playing" ? "pause" : "play"}`} aria-hidden="true" />
         </button>
-        <button className="bigbtn" type="button" onClick={() => void playerNext()} aria-label="Next">
+        <button className="bigbtn" type="button" onClick={() => void playerNext()} aria-label="Next track" title="Next track">
           <span className="control-icon next" aria-hidden="true" />
         </button>
       </div>
 
       <div className="mode-controls" aria-label="Playback modes">
-        <button className={`mode-btn ${player?.shuffle ? "active" : ""}`} type="button" onClick={() => void toggleShuffle()} disabled={!player?.itemId || busy === "shuffle"} aria-label="Shuffle">
+        <button
+          className={`mode-btn ${player?.shuffle ? "active" : ""}`}
+          type="button"
+          onClick={() => void toggleShuffle()}
+          disabled={!player?.itemId || busy === "shuffle"}
+          aria-label={shuffleLabel}
+          title={shuffleLabel}
+        >
           ⇄
         </button>
-        <button className={`mode-btn ${player?.repeat && player.repeat !== "none" ? "active" : ""}`} type="button" onClick={() => void cycleRepeat()} disabled={!player?.itemId || busy === "repeat"} aria-label="Repeat">
+        <button
+          className={`mode-btn ${player?.repeat && player.repeat !== "none" ? "active" : ""}`}
+          type="button"
+          onClick={() => void cycleRepeat()}
+          disabled={!player?.itemId || busy === "repeat"}
+          aria-label={repeatLabel}
+          title={repeatLabel}
+        >
           {player?.repeat === "one" ? "1" : "↻"}
         </button>
-        <button className="mode-btn" type="button" disabled aria-label="Lyrics">
+        <button className="mode-btn" type="button" disabled aria-label="Lyrics unavailable" title="Lyrics unavailable for now">
           LRC
         </button>
       </div>

@@ -49,7 +49,7 @@ class MpvController:
             "--no-terminal",
             f"--input-ipc-server={self._mpv_socket}",
             f"--audio-device={self._audio_device}",
-            "--keep-open=yes",
+            "--keep-open=no",
         ]
         self._proc = await asyncio.create_subprocess_exec(
             *args,
@@ -116,7 +116,8 @@ class MpvController:
                             fut.set_result(msg.get("data"))
                 elif msg.get("event") == "end-file":
                     reason = (msg.get("reason") or "").lower()
-                    if reason == "eof" and self._on_end_file:
+                    logger.info("mpv end-file reason=%s", reason or "unknown")
+                    if reason not in {"stop", "quit", "redirect"} and self._on_end_file:
                         asyncio.create_task(self._on_end_file())
         except asyncio.CancelledError:
             raise
@@ -172,6 +173,9 @@ class MpvController:
             return float(v)
         except (TypeError, ValueError):
             return None
+
+    async def get_eof_reached(self) -> bool:
+        return bool(await self.request(["get_property", "eof-reached"]))
 
     async def get_metadata(self) -> dict[str, Any]:
         meta = await self.request(["get_property", "metadata"])

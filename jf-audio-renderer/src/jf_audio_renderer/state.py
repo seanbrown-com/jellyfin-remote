@@ -31,6 +31,7 @@ class PlayerRuntime:
         self._sse_subscribers: list[asyncio.Queue[PlayerState]] = []
         self._poll_task: asyncio.Task[None] | None = None
         self._mpv_lock = asyncio.Lock()
+        self._advance_lock = asyncio.Lock()
         self._last_item: dict[str, Any] | None = None
 
     async def start(self) -> None:
@@ -86,6 +87,12 @@ class PlayerRuntime:
             try:
                 st = await self.build_state()
                 await self._emit(st)
+                if st.item_id:
+                    try:
+                        if await self._mpv.get_eof_reached():
+                            asyncio.create_task(self._on_end_file())
+                    except Exception as exc:  # noqa: BLE001
+                        logger.debug("failed to poll eof state: %s", exc)
                 await asyncio.sleep(0.4)
             except asyncio.CancelledError:
                 raise
@@ -158,19 +165,34 @@ class PlayerRuntime:
         )
 
     async def _on_end_file(self) -> None:
-        nxt = await self.queue.next_track()
-        if nxt is None:
-            async with self._mpv_lock:
-                await self._mpv.stop()
-            self._last_item = None
+        if self._advance_lock.locked():
             return
-        await self._play_item(nxt)
+        async with self._advance_lock:
+            nxt = await self.queue.next_track()
+            if nxt is None:
+                async with self._mpv_lock:
+                    await self._mpv.stop()
+                self._last_item = None
+                return
+            logger.info("advancing playback to next queued item %s", nxt)
+            await self._play_item(nxt)
 
     async def _play_item(self, item_id: str) -> None:
         url, item = await self._jf.get_audio_stream_url(item_id)
         async with self._mpv_lock:
             self._last_item = item
-            await self._mpv.loadfile(url, "replace")
+            try:
+                await self._mpv.loadfile(url, "replace")
+            except (TimeoutError, RuntimeError) as exc:
+                logger.warning("mpv loadfile failed; restarting mpv and retrying: %s", exc)
+                await self._mpv.shutdown()
+                await self._mpv.start()
+                await self._mpv.set_volume(self._volume)
+                try:
+                    await self._mpv.observe_time_pos()
+                except Exception as observe_exc:  # noqa: BLE001
+                    logger.debug("observe_property failed after mpv restart (non-fatal): %s", observe_exc)
+                await self._mpv.loadfile(url, "replace")
             await self._mpv.pause(False)
 
     async def play(self, item_id: str | None, mode: str, queue: list[str]) -> None:
