@@ -592,13 +592,18 @@ h1 {
 }
 
 .np {
+  --np-reserved-space: 340px;
   padding: 10px 16px 24px;
   max-width: min(94vw, 760px);
   margin: 0 auto;
 }
 
+.np.has-next-up {
+  --np-reserved-space: 430px;
+}
+
 .art-shell {
-  width: clamp(280px, min(92vw, calc(100dvh - var(--nav-h) - 300px)), 720px);
+  width: clamp(180px, min(92vw, calc(100svh - var(--nav-h) - var(--np-reserved-space))), 720px);
   aspect-ratio: 1;
   margin: 10px auto 16px;
   position: relative;
@@ -756,6 +761,70 @@ h1 {
   text-align: left;
 }
 
+@media (max-height: 820px) {
+  .np {
+    --np-reserved-space: 310px;
+    padding-top: 2px;
+    padding-bottom: 10px;
+  }
+
+  .np.has-next-up {
+    --np-reserved-space: 390px;
+  }
+
+  .art-shell {
+    margin: 0 auto 10px;
+  }
+
+  .np .title {
+    font-size: 1.12rem;
+  }
+
+  .np > .sub {
+    margin-top: 2px;
+  }
+
+  .controls {
+    margin-top: 8px;
+  }
+
+  .mode-controls {
+    margin-top: 8px;
+  }
+
+  .next-up {
+    margin-top: 12px;
+  }
+
+  .next-up h2 {
+    margin-bottom: 6px;
+  }
+
+  .next-card {
+    grid-template-columns: 48px 1fr;
+    padding: 8px;
+  }
+
+  .next-card img {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+@media (max-height: 700px) {
+  .np {
+    --np-reserved-space: 292px;
+  }
+
+  .np.has-next-up {
+    --np-reserved-space: 366px;
+  }
+
+  .mode-btn {
+    height: 32px;
+  }
+}
+
 .settings-card {
   padding: 14px;
 }
@@ -905,6 +974,18 @@ h1 {
   border-top: 8px solid transparent;
   border-bottom: 8px solid transparent;
   border-left: 14px solid currentColor;
+}
+
+@media (max-height: 700px) {
+  .bigbtn {
+    width: 50px;
+    height: 50px;
+  }
+
+  .bigbtn.play {
+    width: 62px;
+    height: 62px;
+  }
 }
 
 .muted {

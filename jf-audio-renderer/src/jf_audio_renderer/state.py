@@ -33,6 +33,7 @@ class PlayerRuntime:
         self._mpv_lock = asyncio.Lock()
         self._advance_lock = asyncio.Lock()
         self._last_item: dict[str, Any] | None = None
+        self._loaded_item_id: str | None = None
 
     async def start(self) -> None:
         await self._mpv.start()
@@ -148,7 +149,8 @@ class PlayerRuntime:
                 artists = [str(a) for a in raw_artists]
             image_tag = (self._last_item.get("ImageTags") or {}).get("Primary")
 
-        playing = (not pause) and item_id is not None
+        loaded = self._loaded_item_id == item_id
+        playing = loaded and (not pause) and item_id is not None
         st2 = "playing" if playing else "paused"
         return PlayerState(
             state=st2,  # type: ignore[arg-type]
@@ -173,6 +175,7 @@ class PlayerRuntime:
                 async with self._mpv_lock:
                     await self._mpv.stop()
                 self._last_item = None
+                self._loaded_item_id = None
                 return
             logger.info("advancing playback to next queued item %s", nxt)
             await self._play_item(nxt)
@@ -193,6 +196,7 @@ class PlayerRuntime:
                 except Exception as observe_exc:  # noqa: BLE001
                     logger.debug("observe_property failed after mpv restart (non-fatal): %s", observe_exc)
                 await self._mpv.loadfile(url, "replace")
+            self._loaded_item_id = item_id
             await self._mpv.pause(False)
 
     async def play(self, item_id: str | None, mode: str, queue: list[str]) -> None:
@@ -231,6 +235,11 @@ class PlayerRuntime:
         cur = await self.queue.current()
         if cur:
             await self._play_item(cur)
+        else:
+            async with self._mpv_lock:
+                await self._mpv.stop()
+            self._last_item = None
+            self._loaded_item_id = None
 
     async def pause(self) -> None:
         async with self._mpv_lock:
@@ -244,6 +253,7 @@ class PlayerRuntime:
         async with self._mpv_lock:
             await self._mpv.stop()
         self._last_item = None
+        self._loaded_item_id = None
 
     async def next(self) -> None:
         nxt = await self.queue.next_track()
@@ -253,6 +263,7 @@ class PlayerRuntime:
             async with self._mpv_lock:
                 await self._mpv.stop()
             self._last_item = None
+            self._loaded_item_id = None
 
     async def previous(self) -> None:
         pos = (await self._mpv.get_time_pos()) or 0.0
@@ -277,6 +288,12 @@ class PlayerRuntime:
         current = await self.queue.current()
         start_index = item_ids.index(current) if current in item_ids else 0
         await self.queue.set_queue(item_ids, start_index)
+        next_current = await self.queue.current()
+        if next_current and self._loaded_item_id != next_current:
+            await self._play_item(next_current)
+        elif next_current:
+            async with self._mpv_lock:
+                await self._mpv.pause(False)
 
     async def remove_queue_item(self, index: int) -> None:
         await self.queue.remove_at(index)

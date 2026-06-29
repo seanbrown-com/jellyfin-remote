@@ -102,7 +102,7 @@ export function NowPlaying() {
   const maxDur = useMemo(() => Math.max(duration, 1), [duration]);
 
   return (
-    <div className="np">
+    <div className={`np ${nextUp ? "has-next-up" : ""}`}>
       <div className="art-shell">
         {img && !artFailed ? (
           <img
