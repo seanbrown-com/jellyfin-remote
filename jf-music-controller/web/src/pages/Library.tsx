@@ -9,7 +9,6 @@ type Indexed = { id: string; name: string };
 type PagedItem = Artist | Album | Track;
 
 const PAGE_SIZE = 100;
-const LETTER_PAGE_SIZE = 200;
 const INDEX_KEYS = ["0", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
 
 function indexKey(name: string) {
@@ -216,9 +215,9 @@ export function Library() {
       if (!reset && !letterHasMore[target]) return;
 
       const fetchPage = async (start: number) => {
-        if (target === "artists") return fetchArtists(start, LETTER_PAGE_SIZE, key);
-        if (target === "albums") return fetchAlbums(start, LETTER_PAGE_SIZE, key);
-        return fetchSongs(start, LETTER_PAGE_SIZE, key);
+        if (target === "artists") return fetchArtists(start, PAGE_SIZE, key);
+        if (target === "albums") return fetchAlbums(start, PAGE_SIZE, key);
+        return fetchSongs(start, PAGE_SIZE, key);
       };
 
       if (reset) letterNextStartRef.current[target] = 0;
@@ -240,7 +239,7 @@ export function Library() {
         const total = page.total ?? null;
         letterNextStartRef.current[target] = start + items.length;
         if (total != null) setTotalCount((prev) => ({ ...prev, [target]: total }));
-        setLetterHasMore((prev) => ({ ...prev, [target]: items.length === LETTER_PAGE_SIZE && (total == null || start + items.length < total) }));
+        setLetterHasMore((prev) => ({ ...prev, [target]: items.length === PAGE_SIZE && (total == null || start + items.length < total) }));
         setLetterItems((prev) => (reset || !prev[target] ? { ...prev, [target]: items } : { ...prev, [target]: mergeUnique(prev[target] || [], items) }));
         setLoadedLetter((prev) => ({ ...prev, [target]: key }));
         if (reset) window.scrollTo({ top: 0, behavior: "smooth" });
